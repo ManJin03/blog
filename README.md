@@ -60,9 +60,8 @@ npx wrangler pages dev .
 
 1. **推送仓库**：把本仓库推送到 GitHub / GitLab。
 
-2. **创建 KV 命名空间**（二选一）：
-   - 命令行：`npx wrangler kv namespace create BLOG_KV`，把输出的 id 填入 `wrangler.toml`；
-   - 或控制台：Storage & Databases → KV → Create namespace，然后在 Pages 项目 Settings → Bindings → Add → KV namespace，变量名填 `KV`（若用控制台绑定，可删除 `wrangler.toml` 中的 `[[kv_namespaces]]` 段）。
+2. **创建 KV 命名空间**：
+   - 控制台：Storage & Databases → KV → Create namespace，然后在 Pages 项目 Settings → Bindings → Add → KV namespace，变量名填 `KV`
 
 3. **创建 Pages 项目**：控制台 Workers & Pages → Create → Pages → Connect to Git，选择仓库：
    - Framework preset：None
