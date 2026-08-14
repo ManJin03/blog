@@ -58,7 +58,7 @@ body {
 }
 
 .nav-inner {
-  max-width: 620px;
+  max-width: 860px;
   margin: 0 auto;
   padding: 9px 16px;
   display: flex;
@@ -174,7 +174,7 @@ body {
 
 /* ---------- 页面主体 ---------- */
 .page {
-  max-width: 620px;
+  max-width: 860px;
   margin: 0 auto;
   padding: 24px 16px 40px;
 }
@@ -258,7 +258,7 @@ body {
   resize: vertical;
   min-height: 72px;
   font: inherit;
-  font-size: 15px;
+  font-size: 16px;
   color: var(--text);
   background: transparent;
 }
@@ -321,6 +321,51 @@ body {
 
 .feed-count { font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; }
 
+/* 筛选栏（标签 + 时间） */
+.filter-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin: 0 0 12px;
+}
+
+.filter-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+
+.filter-chip {
+  font-size: 12px;
+  color: var(--muted);
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 3px 12px;
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s, background 0.15s;
+}
+
+.filter-chip:hover { color: var(--accent); border-color: var(--accent); }
+
+.filter-chip.active {
+  color: #fff;
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+.filter-select {
+  font: inherit;
+  font-size: 12px;
+  color: var(--text);
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 4px 10px;
+  cursor: pointer;
+  outline: none;
+}
+
+.filter-select:focus { border-color: var(--accent); }
+
 .post-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 12px; }
 
 .post {
@@ -337,7 +382,7 @@ body {
   to { opacity: 1; transform: none; }
 }
 
-.post-content { font-size: 15px; word-break: break-word; white-space: pre-wrap; }
+.post-content { font-size: 16px; word-break: break-word; white-space: pre-wrap; }
 
 .post-content a { color: var(--accent); text-decoration: none; }
 .post-content a:hover { text-decoration: underline; }
@@ -387,7 +432,7 @@ mark { background: var(--mark); color: inherit; border-radius: 2px; padding: 0 1
 .edit-area {
   width: 100%;
   font: inherit;
-  font-size: 15px;
+  font-size: 16px;
   color: var(--text);
   background: transparent;
   border: 1px solid var(--accent);

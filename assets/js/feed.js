@@ -1,4 +1,4 @@
-// 动态流组件：渲染（含搜索过滤、编辑态）与列表内交互（编辑/删除），通过 handlers 与外部通信
+// 动态流组件：渲染（关键词/标签/时间过滤、编辑态）与列表内交互，通过 handlers 与外部通信
 import { SITE } from './config.js';
 import { esc, escAttr, fmtContent, timeAgo, fmtFull } from './utils.js';
 
@@ -8,42 +8,123 @@ const listEl = document.getElementById('postList');
 const emptyEl = document.getElementById('emptyState');
 const emptyTextEl = emptyEl.querySelector('p');
 const countEl = document.getElementById('postCount');
+const filterBarEl = document.getElementById('filterBar');
 
 export function initFeed(h) {
   handlers = h;
   listEl.addEventListener('click', onClick);
   listEl.addEventListener('input', onInput);
   listEl.addEventListener('keydown', onKeyDown);
+  filterBarEl.addEventListener('click', onFilterClick);
+  filterBarEl.addEventListener('change', onFilterChange);
+}
+
+/* ---------- 标签 / 时间工具 ---------- */
+
+// 提取一条动态里的全部 #话题# 标签（去重）
+function postTags(p) {
+  const tags = [];
+  for (const m of p.content.matchAll(/#([^#\n]{1,50})#/g)) {
+    if (!tags.includes(m[1])) tags.push(m[1]);
+  }
+  return tags;
+}
+
+function monthKey(ts) {
+  const d = new Date(ts);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+}
+
+function hasFilter(state) {
+  return !!(state.query.trim() || state.tag || state.month);
 }
 
 function visiblePosts(state) {
+  if (!hasFilter(state)) return state.posts;
   const q = state.query.trim().toLowerCase();
-  if (!q) return state.posts;
-  return state.posts.filter((p) => p.content.toLowerCase().includes(q));
+  return state.posts.filter((p) => {
+    // 正在编辑的帖子固定显示，避免筛选条件把它过滤掉导致编辑框消失、输入丢失
+    if (state.editingId === p.id) return true;
+    if (q && !p.content.toLowerCase().includes(q)) return false;
+    if (state.tag && !postTags(p).includes(state.tag)) return false;
+    if (state.month && monthKey(p.createdAt) !== state.month) return false;
+    return true;
+  });
 }
 
+/* ---------- 渲染 ---------- */
+
 export function renderFeed(state) {
+  renderFilterBar(state);
+
   const posts = visiblePosts(state);
-  const q = state.query.trim();
+  const filtered = hasFilter(state);
 
   countEl.textContent = state.posts.length
-    ? (q ? `${posts.length}/${state.posts.length} 条` : `共 ${state.posts.length} 条`)
+    ? (filtered ? `${posts.length}/${state.posts.length} 条` : `共 ${state.posts.length} 条`)
     : '';
 
   const empty = posts.length === 0;
   emptyEl.classList.toggle('hidden', !empty);
   if (empty) {
-    emptyTextEl.textContent = q ? `没有找到与「${q}」相关的动态` : '还没有动态，发布第一条想法吧';
+    emptyTextEl.textContent = filtered ? '没有符合筛选条件的动态' : '还没有动态，发布第一条想法吧';
   }
 
-  listEl.innerHTML = posts.map((p) => postHtml(p, state)).join('');
+  // 编辑中的条目保留现有 DOM 节点，避免搜索/筛选触发的重渲染丢失正在输入的内容
+  const editingLi = listEl.querySelector('li.post.editing');
+  const preserve = editingLi && editingLi.dataset.id === state.editingId ? editingLi : null;
 
-  // 编辑态自动聚焦，光标置于末尾
+  listEl.innerHTML = posts
+    .map((p) => (preserve && p.id === state.editingId
+      ? `<li data-slot="${escAttr(p.id)}"></li>`
+      : postHtml(p, state)))
+    .join('');
+
+  if (preserve) {
+    listEl.querySelector(`[data-slot="${CSS.escape(state.editingId)}"]`)?.replaceWith(preserve);
+    return; // 保留节点时不动焦点
+  }
+
+  // 进入编辑态：自动聚焦。必须延迟到下一帧再 focus + setSelectionRange，
+  // 同一帧内 innerHTML + 选区操作会破坏 Windows 中文输入法的组合输入（表现为无法键入、只能粘贴）
   const area = listEl.querySelector('.edit-area');
   if (area) {
-    area.focus();
-    area.selectionStart = area.selectionEnd = area.value.length;
+    requestAnimationFrame(() => {
+      area.focus();
+      area.setSelectionRange(area.value.length, area.value.length);
+    });
   }
+}
+
+function renderFilterBar(state) {
+  // 汇总全部动态的标签（按出现次数降序）与月份（降序）
+  const tagCount = new Map();
+  for (const p of state.posts) {
+    for (const t of postTags(p)) tagCount.set(t, (tagCount.get(t) || 0) + 1);
+  }
+  const tags = [...tagCount.keys()].sort((a, b) => tagCount.get(b) - tagCount.get(a));
+  // 当前筛选的标签即使已无帖子也保留为可点击的 chip，便于取消筛选
+  if (state.tag && !tags.includes(state.tag)) tags.unshift(state.tag);
+
+  const months = [...new Set(state.posts.map((p) => monthKey(p.createdAt)))].sort().reverse();
+
+  if (!tags.length && months.length <= 1 && !state.month) {
+    filterBarEl.classList.add('hidden');
+    filterBarEl.innerHTML = '';
+    return;
+  }
+
+  filterBarEl.classList.remove('hidden');
+  filterBarEl.innerHTML = `
+    <div class="filter-chips">
+      ${tags.map((t) => `
+        <button class="filter-chip${state.tag === t ? ' active' : ''}" type="button" data-tag="${escAttr(t)}">#${esc(t)}#</button>`).join('')}
+    </div>
+    ${months.length > 1 || state.month ? `
+    <select class="filter-select" aria-label="按时间筛选">
+      <option value="">全部时间</option>
+      ${months.map((m) => `<option value="${m}"${state.month === m ? ' selected' : ''}>${m}</option>`).join('')}
+    </select>` : ''}`;
 }
 
 function postHtml(p, state) {
@@ -114,4 +195,14 @@ function onKeyDown(e) {
   if (!area) return;
   const li = area.closest('li');
   if (area.value.trim()) handlers.onSaveEdit?.(li.dataset.id, area.value);
+}
+
+function onFilterClick(e) {
+  const chip = e.target.closest('[data-tag]');
+  if (chip) handlers.onTagSelect?.(chip.dataset.tag);
+}
+
+function onFilterChange(e) {
+  const select = e.target.closest('select');
+  if (select) handlers.onMonthSelect?.(select.value);
 }

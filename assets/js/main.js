@@ -27,6 +27,8 @@ const state = {
   authed: false,   // 是否已登录（站长）
   posts: [],       // 全部动态
   query: '',       // 搜索关键词
+  tag: null,       // 选中的标签筛选（#话题#内容，不含井号）
+  month: '',       // 选中的时间筛选（YYYY-MM，空为全部）
   editingId: null, // 正在编辑的动态 id
 };
 
@@ -113,6 +115,14 @@ initFeed({
     } catch (err) {
       alert(err.message);
     }
+  },
+  onTagSelect(tag) {
+    state.tag = state.tag === tag ? null : tag; // 再次点击同一标签取消筛选
+    render();
+  },
+  onMonthSelect(month) {
+    state.month = month;
+    render();
   },
 });
 
