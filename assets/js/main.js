@@ -189,6 +189,107 @@ document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape' && !els.loginModal.classList.contains('hidden')) closeModal();
 });
 
+/* =====================================================================
+ * 以下为页面增强部分：作品展示、右侧导航高亮、滚动揭示、时钟、阅读进度
+ * ===================================================================== */
+
+/* ---------- 作品展示渲染 ---------- */
+function renderWorks() {
+  const grid = document.getElementById('worksGrid');
+  if (!grid || !SITE.works) return;
+  grid.innerHTML = SITE.works.map((w) => `
+    <a class="works-card" href="${w.url}" target="_blank" rel="noopener noreferrer">
+      <div class="works-card-head">
+        <span class="works-ic">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16v16H4z"/><path d="M4 9h16M9 9v11"/></svg>
+        </span>
+        <div>
+          <div class="works-name">${escapeHtml(w.name)}</div>
+          <div class="works-lang"><span class="lang-dot" style="background:${w.langColor || '#4f8dff'}"></span>${escapeHtml(w.lang || '—')}</div>
+        </div>
+      </div>
+      <p class="works-desc">${escapeHtml(w.desc || '')}</p>
+      <div class="works-foot">
+        <span title="Stars">★ ${w.stars ?? 0}</span>
+        <span title="Forks">⑂ ${w.forks ?? 0}</span>
+      </div>
+    </a>
+  `).join('');
+}
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, (c) => (
+    { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]
+  ));
+}
+
+/* ---------- 右侧导航高亮（滚动联动） ---------- */
+function setupSideNav() {
+  const links = Array.from(document.querySelectorAll('.side-link'));
+  const sections = links
+    .map((l) => document.getElementById(l.dataset.target))
+    .filter(Boolean);
+  if (!sections.length) return;
+
+  const setActive = () => {
+    const y = window.scrollY + 120;
+    let current = sections[0].id;
+    for (const sec of sections) {
+      if (sec.offsetTop <= y) current = sec.id;
+    }
+    links.forEach((l) => l.classList.toggle('active', l.dataset.target === current));
+  };
+  window.addEventListener('scroll', setActive, { passive: true });
+  window.addEventListener('resize', setActive);
+  setActive();
+}
+
+/* ---------- 滚动揭示动画 ---------- */
+function setupReveal() {
+  const items = document.querySelectorAll('[data-reveal]');
+  if (!('IntersectionObserver' in window) || !items.length) {
+    items.forEach((el) => el.classList.add('is-in'));
+    return;
+  }
+  const io = new IntersectionObserver((entries) => {
+    entries.forEach((e) => {
+      if (e.isIntersecting) {
+        e.target.classList.add('is-in');
+        io.unobserve(e.target);
+      }
+    });
+  }, { threshold: 0.12 });
+  items.forEach((el) => io.observe(el));
+}
+
+/* ---------- 本地时钟 ---------- */
+function setupClock() {
+  const el = document.getElementById('sideClock');
+  if (!el) return;
+  const tick = () => {
+    const d = new Date();
+    const p = (n) => String(n).padStart(2, '0');
+    el.textContent = `${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
+  };
+  tick();
+  setInterval(tick, 1000);
+}
+
+/* ---------- 阅读进度条 ---------- */
+function setupProgress() {
+  const bar = document.getElementById('readBar');
+  if (!bar) return;
+  const update = () => {
+    const h = document.documentElement;
+    const max = h.scrollHeight - h.clientHeight;
+    const pct = max > 0 ? (h.scrollTop / max) * 100 : 0;
+    bar.style.width = `${Math.min(100, Math.max(0, pct))}%`;
+  };
+  window.addEventListener('scroll', update, { passive: true });
+  window.addEventListener('resize', update);
+  update();
+}
+
 /* ---------- 初始化 ---------- */
 
 (async function init() {
@@ -206,6 +307,13 @@ document.addEventListener('keydown', (e) => {
     listFallback(err);
   }
   render();
+
+  // 页面增强模块（不依赖后端）
+  renderWorks();
+  setupSideNav();
+  setupReveal();
+  setupClock();
+  setupProgress();
 })();
 
 function listFallback(errEl) {

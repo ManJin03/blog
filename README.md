@@ -34,8 +34,7 @@
 │       ├── me.js               # GET     /api/me        登录状态
 │       ├── login.js            # POST    /api/login     登录 / DELETE 退出
 │       ├── posts.js            # GET/POST /api/posts    列表 / 发帖
-│       └── posts/[id].js       # PATCH/DELETE /api/posts/:id  编辑 / 删除
-├── wrangler.toml               # Pages 配置（KV 绑定）
+│       └── posts/[id].js       # PATCH/DELETE /api/posts/:id  编辑 / 删除/
 └── .dev.vars                   # 本地开发用环境变量（不入库）
 ```
 

@@ -1,0 +1,38 @@
+// 跟随光标的圆点指针（纯视觉，不干扰阅读）
+
+const cursor = document.createElement('div');
+cursor.className = 'focus-cursor';
+document.body.appendChild(cursor);
+
+let cx = window.innerWidth / 2;
+let cy = window.innerHeight / 2;
+let visible = false;
+
+window.addEventListener('mousemove', (e) => {
+  cx = e.clientX;
+  cy = e.clientY;
+  if (!visible) {
+    visible = true;
+    cursor.classList.add('is-visible');
+  }
+});
+
+window.addEventListener('mouseleave', () => {
+  visible = false;
+  cursor.classList.remove('is-visible');
+});
+
+// 悬停在可点击元素时，圆点放大高亮
+const interactiveSel = 'a, button, .post, .side-link, .filter-chip, input, textarea, .works-card';
+document.addEventListener('mouseover', (e) => {
+  if (e.target.closest(interactiveSel)) cursor.classList.add('is-hot');
+});
+document.addEventListener('mouseout', (e) => {
+  if (e.target.closest(interactiveSel)) cursor.classList.remove('is-hot');
+});
+
+function loop() {
+  cursor.style.transform = `translate(${cx}px, ${cy}px)`;
+  requestAnimationFrame(loop);
+}
+requestAnimationFrame(loop);
