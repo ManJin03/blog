@@ -247,6 +247,42 @@ function setupStatus() {
   text.textContent = SITE.status || '暂无状态';
 }
 
+/* ---------- 友情链接（个人资料底部） ---------- */
+function setupFriendLink() {
+  const box = document.getElementById('friendLink');
+  const val = document.getElementById('friendLinkVal');
+  if (!box || !val) return;
+  const f = SITE.friendLink;
+  if (!f || !f.url) { box.classList.add('hidden'); return; }
+  val.textContent = f.name || f.url;
+  val.href = f.url;
+  val.title = f.url;
+}
+
+/* ---------- 最新文章（技术博客首篇；无则显示"暂无"，保留空位） ---------- */
+function setupLatestPost() {
+  const box = document.getElementById('latestPost');
+  if (!box) return;
+  const p = SITE.latestPost;
+  if (!p || !p.url) {
+    box.classList.add('is-empty');
+    box.innerHTML = '<p class="latest-empty">暂无</p>';
+    return;
+  }
+  const tags = (p.tags || []).map((t) => `<span class="latest-tag">#${escapeHtml(t)}</span>`).join('');
+  box.innerHTML = `
+    <a class="latest-link" href="${encodeURI(p.url)}" target="_blank" rel="noopener noreferrer">
+      <div class="latest-meta">
+        <span class="latest-badge">文章</span>
+        ${p.date ? `<span class="latest-date">${escapeHtml(p.date)}</span>` : ''}
+      </div>
+      <h3 class="latest-title">${escapeHtml(p.title)}</h3>
+      ${p.excerpt ? `<p class="latest-excerpt">${escapeHtml(p.excerpt)}</p>` : ''}
+      ${tags ? `<div class="latest-tags">${tags}</div>` : ''}
+    </a>
+  `;
+}
+
 /* ---------- 右侧导航高亮（滚动联动） ---------- */
 function setupSideNav() {
   const links = Array.from(document.querySelectorAll('.side-link'));
@@ -336,6 +372,8 @@ function setupProgress() {
   renderWorks();
   setupAvatar();
   setupStatus();
+  setupFriendLink();
+  setupLatestPost();
   setupSideNav();
   setupReveal();
   setupClock();

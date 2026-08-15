@@ -10,9 +10,23 @@ export const SITE = {
   links: {
     github: 'https://github.com/ManJin03',
     blog: 'https://tech-manjin.pages.dev/',
+    friend: 'https://homepage-afl.pages.dev/',
   },
   // 单条动态字数上限，需与 functions/_lib/posts.js 的 MAX_LEN 保持一致
   maxPostLen: 500,
+  // 友情链接（显示在个人资料底部）
+  friendLink: {
+    name: 'Young man 的个人主页',
+    url: 'https://homepage-afl.pages.dev/',
+  },
+  // 技术博客最新一篇文章（展示在"作品展示"与"关于我"之间；为空则显示"暂无"）
+  latestPost: {
+    title: 'C++ 内存模型：从原子操作到 happens-before 关系',
+    url: 'https://tech-manjin.pages.dev/posts/cpp-memory-model-atomics.html',
+    excerpt: '理解 std::atomic 的六种内存序，关键不在于背 API，而在于建立 happens-before 与同步关系的心智模型。',
+    tags: ['C++', '并发', '内存模型', 'atomic'],
+    date: '2026/07/12',
+  },
   // 作品展示（GitHub 公开仓库 + 精选）
   works: [
     {

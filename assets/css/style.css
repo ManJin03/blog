@@ -380,6 +380,31 @@ a, button, input, textarea, select, .side-link, .filter-chip, .works-card, .post
 }
 .profile-links .social-link:hover { color: var(--accent); border-color: var(--accent); background: var(--hover); }
 
+/* 友情链接（资料底部） */
+.friend-link {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+  font-size: 13px;
+}
+.friend-label {
+  flex: none;
+  font-size: 11px;
+  color: var(--muted);
+  letter-spacing: 0.5px;
+}
+.friend-val {
+  color: var(--accent);
+  text-decoration: none;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.friend-val:hover { text-decoration: underline; }
+
 /* ---------- 模块通用 ---------- */
 .module { margin-bottom: 26px; scroll-margin-top: 72px; }
 
@@ -676,6 +701,69 @@ mark { background: var(--mark); color: inherit; border-radius: 2px; padding: 0 1
 .works-desc { margin: 12px 0 14px; font-size: 13px; color: var(--muted); line-height: 1.6; min-height: 40px; }
 .works-foot { display: flex; gap: 14px; font-size: 12px; color: var(--muted); }
 .works-foot span { display: inline-flex; align-items: center; gap: 4px; }
+
+/* ---------- 最新文章（技术博客首篇） ---------- */
+.latest-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  box-shadow: var(--shadow);
+  padding: 18px;
+  min-height: 132px;            /* 保留空位，避免无文章时塌陷 */
+  display: flex;
+  transition: transform 0.22s, box-shadow 0.22s, border-color 0.22s;
+}
+.latest-card.is-empty {
+  align-items: center;
+  justify-content: center;
+}
+.latest-empty {
+  margin: 0;
+  color: var(--muted);
+  font-size: 14px;
+  letter-spacing: 2px;
+}
+.latest-link {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+  text-decoration: none;
+  color: inherit;
+}
+.latest-link:hover { color: inherit; }
+.latest-meta { display: flex; align-items: center; gap: 8px; }
+.latest-badge {
+  font-size: 11px;
+  font-weight: 600;
+  color: #fff;
+  background: var(--accent-grad);
+  border-radius: 999px;
+  padding: 2px 9px;
+  letter-spacing: 0.5px;
+}
+.latest-date { font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.latest-title { margin: 0; font-size: 16px; line-height: 1.45; }
+.latest-link:hover .latest-title { color: var(--accent); }
+.latest-excerpt {
+  margin: 0;
+  font-size: 13px;
+  color: var(--muted);
+  line-height: 1.7;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.latest-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 2px; }
+.latest-tag {
+  font-size: 11px;
+  color: var(--muted);
+  background: var(--hover);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 1px 9px;
+}
 
 /* ---------- 关于我 ---------- */
 .about-card {
