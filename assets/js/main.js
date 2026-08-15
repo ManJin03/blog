@@ -284,11 +284,13 @@ function setupFriendLink() {
   val.title = f.url;
 }
 
-/* ---------- 最新文章（技术博客首篇；无则显示"暂无"，保留空位） ---------- */
-function setupLatestPost() {
+/* ---------- 最新文章（优先拉取技术博客实时文章；接口失败回退本地配置） ---------- */
+async function setupLatestPost() {
   const box = document.getElementById('latestPost');
   if (!box) return;
-  const p = SITE.latestPost;
+  // 后端代理抓取技术博客 RSS 并返回最新文章；失败时为 null，走本地配置兜底
+  const remote = await api.getLatestPost();
+  const p = remote?.latestPost || SITE.latestPost;
   if (!p || !p.url) {
     box.classList.add('is-empty');
     box.innerHTML = '<p class="latest-empty">暂无</p>';
