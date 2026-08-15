@@ -23,7 +23,7 @@ window.addEventListener('mouseleave', () => {
 });
 
 // 悬停在可点击元素时，圆点放大高亮
-const interactiveSel = 'a, button, .post, .side-link, .filter-chip, input, textarea, .works-card';
+const interactiveSel = 'a, button, .post, .side-link, .filter-chip, input, textarea, .works-card, .status-bar, .search-clear, .act-btn, .modal-close, .brand, .auth-btn, .btn-ghost, .publish-btn, .filter-select';
 document.addEventListener('mouseover', (e) => {
   if (e.target.closest(interactiveSel)) cursor.classList.add('is-hot');
 });

@@ -13,6 +13,7 @@
   --mark: rgba(255, 213, 0, 0.4);
   --shadow: 0 1px 2px rgba(16, 24, 40, 0.04), 0 8px 24px rgba(16, 24, 40, 0.06);
   --glow: rgba(63, 120, 255, 0.55);
+  --cursor-dot: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16'%3E%3Ccircle cx='8' cy='8' r='3.5' fill='%232f6bed'/%3E%3C/svg%3E") 8 8, auto;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -45,30 +46,18 @@ body {
   line-height: 1.6;
   min-height: 100vh;
   /* 圆点光标（自定义图形），并兜底为 auto */
-  cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16'%3E%3Ccircle cx='8' cy='8' r='3.5' fill='%232f6bed'/%3E%3C/svg%3E") 8 8, auto;
+  cursor: var(--cursor-dot);
 }
 
 .hidden { display: none !important; }
 
-/* 全局圆点光标（对链接/按钮等可点元素同样生效） */
-a, button, input, textarea, select, .side-link, .filter-chip, .works-card, .post, .social-link, .auth-btn, .nav-link {
-  cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16'%3E%3Ccircle cx='8' cy='8' r='3.5' fill='%232f6bed'/%3E%3C/svg%3E") 8 8, auto;
-}
+/* 自定义圆点光标：统一应用到所有元素（含链接/按钮等可点元素）。
+   用 !important 兜底，防止任何元素显式声明（如 cursor: pointer/default/not-allowed）覆盖为系统光标 */
+* { cursor: var(--cursor-dot) !important; }
 
-/* 精确指针（鼠标）设备：隐藏系统光标，统一由 JS 圆点层接管，避免按钮处出现原生箭头 */
+/* 精确指针（鼠标）设备：隐藏系统光标，统一由 JS 圆点层接管，避免悬停可交互元素时闪现原生光标 */
 @media (pointer: fine) {
-  html, body,
-  a, button, input, textarea, select, .side-link, .filter-chip,
-  .works-card, .post, .social-link, .auth-btn, .nav-link, .search-clear,
-  .act-btn, .modal-close, .brand {
-    cursor: none;
-  }
-  /* 悬停可点元素时，JS 圆点已放大高亮；系统光标保持隐藏 */
-  a:hover, button:hover, input:hover, textarea:hover, select:hover,
-  .side-link:hover, .filter-chip:hover, .works-card:hover, .post:hover,
-  .social-link:hover, .auth-btn:hover, .nav-link:hover {
-    cursor: none;
-  }
+  * { cursor: none !important; }
 }
 
 /* ---------- 跟随光标的圆点（纯视觉，不干扰阅读） ---------- */
@@ -181,7 +170,6 @@ a, button, input, textarea, select, .side-link, .filter-chip, .works-card, .post
   border-radius: 50%;
   background: var(--hover);
   color: var(--muted);
-  cursor: pointer;
 }
 
 .search-clear:hover { color: var(--text); }
@@ -213,7 +201,6 @@ a, button, input, textarea, select, .side-link, .filter-chip, .works-card, .post
   border: 1px solid var(--border);
   border-radius: 999px;
   padding: 5px 13px;
-  cursor: pointer;
   white-space: nowrap;
   transition: color 0.15s, border-color 0.15s;
 }
@@ -296,7 +283,6 @@ a, button, input, textarea, select, .side-link, .filter-chip, .works-card, .post
   border: 1px solid var(--border);
   font-size: 13px;
   color: var(--text);
-  cursor: default;
   transition: border-color 0.2s, background 0.2s;
 }
 .status-bar:hover {
@@ -472,7 +458,6 @@ a, button, input, textarea, select, .side-link, .filter-chip, .works-card, .post
   font-weight: 600;
   color: #fff;
   background: var(--accent-grad);
-  cursor: pointer;
   box-shadow: 0 3px 10px rgba(47, 107, 237, 0.3);
   transition: opacity 0.15s, transform 0.05s;
 }
@@ -481,7 +466,7 @@ a, button, input, textarea, select, .side-link, .filter-chip, .works-card, .post
 
 .publish-btn:active:not(:disabled) { transform: scale(0.97); }
 
-.publish-btn:disabled { opacity: 0.45; cursor: not-allowed; box-shadow: none; }
+.publish-btn:disabled { opacity: 0.45; box-shadow: none; }
 
 .publish-btn.full { width: 100%; padding: 10px; }
 
@@ -492,7 +477,6 @@ a, button, input, textarea, select, .side-link, .filter-chip, .works-card, .post
   border-radius: 999px;
   padding: 5px 14px;
   font-size: 13px;
-  cursor: pointer;
   transition: color 0.15s, border-color 0.15s;
 }
 
@@ -526,7 +510,6 @@ a, button, input, textarea, select, .side-link, .filter-chip, .works-card, .post
   border: 1px solid var(--border);
   border-radius: 999px;
   padding: 3px 12px;
-  cursor: pointer;
   transition: color 0.15s, border-color 0.15s, background 0.15s;
 }
 
@@ -546,7 +529,6 @@ a, button, input, textarea, select, .side-link, .filter-chip, .works-card, .post
   border: 1px solid var(--border);
   border-radius: 999px;
   padding: 4px 10px;
-  cursor: pointer;
   outline: none;
 }
 
@@ -596,7 +578,7 @@ mark { background: var(--mark); color: inherit; border-radius: 2px; padding: 0 1
 
 .post-meta time { font-variant-numeric: tabular-nums; }
 
-.edited-tag { font-style: italic; font-size: 12px; cursor: default; }
+.edited-tag { font-style: italic; font-size: 12px; }
 
 .post-actions { margin-left: auto; display: flex; gap: 4px; }
 
@@ -610,7 +592,6 @@ mark { background: var(--mark); color: inherit; border-radius: 2px; padding: 0 1
   font-size: 12px;
   padding: 3px 8px;
   border-radius: 8px;
-  cursor: pointer;
   transition: color 0.15s, background 0.15s;
 }
 
@@ -906,7 +887,6 @@ mark { background: var(--mark); color: inherit; border-radius: 2px; padding: 0 1
   border: none;
   background: transparent;
   color: var(--muted);
-  cursor: pointer;
   padding: 6px;
   border-radius: 8px;
 }
