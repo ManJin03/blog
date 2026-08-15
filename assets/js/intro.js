@@ -17,9 +17,16 @@ window.addEventListener('mousemove', (e) => {
   }
 });
 
-window.addEventListener('mouseleave', () => {
+function hideCursor() {
   visible = false;
-  cursor.classList.remove('is-visible');
+  cursor.classList.remove('is-visible', 'is-hot');
+}
+
+// 鼠标离开文档（含移出窗口）时隐藏圆点：
+// mouseleave 不冒泡，需挂在 documentElement 上；mouseout 检查 relatedTarget 兜底快速移出的场景
+document.documentElement.addEventListener('mouseleave', hideCursor);
+document.addEventListener('mouseout', (e) => {
+  if (!e.relatedTarget) hideCursor();
 });
 
 // 悬停在可点击元素时，圆点放大高亮

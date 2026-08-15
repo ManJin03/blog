@@ -230,7 +230,7 @@ function postHtml(p, state) {
 function editHtml(p) {
   return `
     <li class="post editing" data-id="${escAttr(p.id)}">
-      <textarea class="edit-area" maxlength="${SITE.maxPostLen}" rows="3">${esc(p.content)}</textarea>
+      <textarea class="edit-area" rows="3">${esc(p.content)}</textarea>
       <div class="edit-bar">
         <span class="char-count">${p.content.length}/${SITE.maxPostLen}</span>
         <div class="edit-actions">
@@ -253,7 +253,7 @@ function onClick(e) {
   else if (btn.hasAttribute('data-cancel')) handlers.onCancelEdit?.();
   else if (btn.hasAttribute('data-save')) {
     const area = li.querySelector('.edit-area');
-    if (area.value.trim()) handlers.onSaveEdit?.(id, area.value);
+    if (area.value.trim() && area.value.length <= SITE.maxPostLen) handlers.onSaveEdit?.(id, area.value);
   }
 }
 
@@ -281,8 +281,11 @@ function onInput(e) {
   const area = e.target.closest('.edit-area');
   if (!area) return;
   const li = area.closest('li');
+  const over = area.value.length > SITE.maxPostLen;
   li.querySelector('.char-count').textContent = `${area.value.length}/${SITE.maxPostLen}`;
-  li.querySelector('[data-save]').disabled = !area.value.trim();
+  li.querySelector('.char-count').classList.toggle('over', over);
+  // 超出字数上限时禁止保存（允许继续输入，不截断）
+  li.querySelector('[data-save]').disabled = !area.value.trim() || over;
 }
 
 function onKeyDown(e) {
@@ -290,7 +293,7 @@ function onKeyDown(e) {
   const area = e.target.closest('.edit-area');
   if (!area) return;
   const li = area.closest('li');
-  if (area.value.trim()) handlers.onSaveEdit?.(li.dataset.id, area.value);
+  if (area.value.trim() && area.value.length <= SITE.maxPostLen) handlers.onSaveEdit?.(li.dataset.id, area.value);
 }
 
 function onFilterClick(e) {

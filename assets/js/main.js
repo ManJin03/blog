@@ -45,13 +45,17 @@ function render() {
 /* ---------- 发帖 ---------- */
 
 function updateCharCount() {
-  els.charCount.textContent = `${els.postInput.value.length}/${SITE.maxPostLen}`;
-  els.postBtn.disabled = !els.postInput.value.trim();
+  const len = els.postInput.value.length;
+  const over = len > SITE.maxPostLen;
+  els.charCount.textContent = `${len}/${SITE.maxPostLen}`;
+  els.charCount.classList.toggle('over', over);
+  // 超出字数上限时禁止提交（允许继续输入，不截断）
+  els.postBtn.disabled = !els.postInput.value.trim() || over;
 }
 
 async function submitPost() {
   const content = els.postInput.value.trim();
-  if (!content || els.postBtn.disabled) return;
+  if (!content || content.length > SITE.maxPostLen || els.postBtn.disabled) return;
   els.postBtn.disabled = true;
   els.postBtn.textContent = '发布中…';
   try {
