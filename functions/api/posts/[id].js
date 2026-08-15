@@ -14,12 +14,19 @@ export async function onRequestPatch({ request, env, data, params }) {
     return json({ error: '请求格式错误' }, 400);
   }
 
-  const parsed = parseContent(body);
-  if (parsed.error) return json({ error: parsed.error }, 400);
-
   const posts = await readPosts(env);
   const idx = posts.findIndex((p) => p.id === params.id);
   if (idx === -1) return json({ error: '动态不存在' }, 404);
+
+  // 置顶切换：请求体仅含 pinned 时只更新置顶状态，不动内容
+  if (typeof body?.pinned === 'boolean') {
+    posts[idx] = { ...posts[idx], pinned: body.pinned };
+    await writePosts(env, posts);
+    return json({ post: posts[idx] });
+  }
+
+  const parsed = parseContent(body);
+  if (parsed.error) return json({ error: parsed.error }, 400);
 
   posts[idx] = { ...posts[idx], content: parsed.content, updatedAt: Date.now() };
   await writePosts(env, posts);

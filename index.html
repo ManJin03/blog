@@ -142,6 +142,16 @@
           <div class="feed-header">
             <h2>我的动态</h2>
             <span id="postCount" class="feed-count"></span>
+            <select id="filterDate" class="filter-select hidden" aria-label="按时间筛选"></select>
+          </div>
+          <div id="pinnedWrap" class="pinned-wrap hidden">
+            <div class="pinned-head">
+              <h3>
+                <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 17v5"/><path d="M9 10.76V2h6v8.76L17.5 13h-11L9 10.76z"/></svg>
+                置顶动态
+              </h3>
+            </div>
+            <ul id="pinnedList" class="post-list"></ul>
           </div>
           <div id="filterBar" class="filter-bar hidden"></div>
           <div id="emptyState" class="empty hidden">
@@ -152,6 +162,9 @@
             <p>还没有动态，发布第一条想法吧</p>
           </div>
           <ul id="postList" class="post-list"></ul>
+          <div id="listToggle" class="list-toggle hidden">
+            <button id="listToggleBtn" class="list-toggle-btn" type="button"></button>
+          </div>
         </div>
       </section>
 

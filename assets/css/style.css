@@ -485,11 +485,30 @@ body {
 /* ---------- 动态流 ---------- */
 .feed { }
 
-.feed-header { display: flex; align-items: baseline; gap: 10px; padding: 0 4px 10px; }
+.feed-header { display: flex; align-items: center; gap: 10px; padding: 0 4px 10px; }
 
 .feed-header h2 { margin: 0; font-size: 17px; }
 
-.feed-count { font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.feed-count { font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; margin-right: auto; }
+
+/* 置顶动态模块（无置顶帖时整体隐藏） */
+.pinned-wrap { margin-bottom: 14px; }
+.pinned-head { display: flex; align-items: center; padding: 0 4px 10px; }
+.pinned-head h3 {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--muted);
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+.pinned-head h3 svg { color: var(--accent); }
+.pinned-wrap .post {
+  border-color: rgba(47, 107, 237, 0.35);
+  background: linear-gradient(180deg, rgba(47, 107, 237, 0.06), var(--card));
+}
+.pinned-wrap .post:hover { border-color: rgba(47, 107, 237, 0.55); }
 
 /* 筛选栏（标签 + 时间） */
 .filter-bar {
@@ -501,7 +520,19 @@ body {
   margin: 0 0 12px;
 }
 
-.filter-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chips-row { display: flex; align-items: center; gap: 8px; min-width: 0; }
+/* 标签默认只显示一行，超出折叠，点击"展开"后换行显示全部 */
+.filter-chips { display: flex; flex-wrap: nowrap; gap: 6px; overflow: hidden; min-width: 0; }
+.filter-chips.expanded { flex-wrap: wrap; overflow: visible; }
+.chips-toggle {
+  flex: none;
+  border: none;
+  background: none;
+  color: var(--accent);
+  font-size: 12px;
+  padding: 0;
+}
+.chips-toggle:hover { text-decoration: underline; }
 
 .filter-chip {
   font-size: 12px;
@@ -536,6 +567,23 @@ body {
 
 .post-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 12px; }
 
+/* 普通动态列表展开全部/收起 */
+.list-toggle { text-align: center; margin-top: 14px; }
+.list-toggle-btn {
+  font-size: 13px;
+  color: var(--accent);
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 6px 18px;
+  transition: color 0.15s, border-color 0.15s, background 0.15s;
+}
+.list-toggle-btn:hover {
+  color: #fff;
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
 .post {
   background: var(--card);
   border: 1px solid var(--border);
@@ -557,6 +605,30 @@ body {
 }
 
 .post-content { font-size: 16px; word-break: break-word; white-space: pre-wrap; }
+
+/* 单帖内容默认只显示 3 行，展开后显示全部 */
+.post-content.clamped {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  overflow: hidden;
+}
+.post-content.clamped.no-clamp,
+.post-content.clamped.expanded {
+  display: block;
+  -webkit-line-clamp: unset;
+  overflow: visible;
+}
+
+.post-expand {
+  margin-top: 8px;
+  border: none;
+  background: none;
+  color: var(--accent);
+  font-size: 13px;
+  padding: 0;
+}
+.post-expand:hover { text-decoration: underline; }
 
 .post-content a { color: var(--accent); text-decoration: none; }
 .post-content a:hover { text-decoration: underline; }
@@ -596,6 +668,8 @@ mark { background: var(--mark); color: inherit; border-radius: 2px; padding: 0 1
 }
 
 .act-btn:hover { color: var(--accent); background: var(--hover); }
+
+.act-btn.pinned { color: var(--accent); }
 
 .act-btn.danger:hover { color: var(--danger); background: rgba(229, 72, 77, 0.1); }
 

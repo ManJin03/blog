@@ -30,6 +30,7 @@ const state = {
   tag: null,       // 选中的标签筛选（#话题#内容，不含井号）
   month: '',       // 选中的时间筛选（YYYY-MM，空为全部）
   editingId: null, // 正在编辑的动态 id
+  listExpanded: false, // 普通动态列表是否已展开（默认折叠为 5 条）
 };
 
 function render() {
@@ -123,6 +124,21 @@ initFeed({
   onMonthSelect(month) {
     state.month = month;
     render();
+  },
+  onListToggle() {
+    state.listExpanded = !state.listExpanded;
+    render();
+  },
+  async onTogglePin(id) {
+    const p = state.posts.find((x) => x.id === id);
+    if (!p) return;
+    try {
+      const { post } = await api.togglePin(id, !p.pinned);
+      state.posts = state.posts.map((x) => (x.id === id ? post : x));
+      render();
+    } catch (err) {
+      alert(err.message);
+    }
   },
 });
 

@@ -25,6 +25,10 @@ export const updatePost = (id, content) => request(`/api/posts/${encodeURICompon
   method: 'PATCH',
   body: JSON.stringify({ content }),
 });
+export const togglePin = (id, pinned) => request(`/api/posts/${encodeURIComponent(id)}`, {
+  method: 'PATCH',
+  body: JSON.stringify({ pinned }),
+});
 export const deletePost = (id) => request(`/api/posts/${encodeURIComponent(id)}`, {
   method: 'DELETE',
 });

@@ -1,4 +1,4 @@
-// 动态流组件：渲染（关键词/标签/时间过滤、编辑态）与列表内交互，通过 handlers 与外部通信
+// 动态流组件：渲染（关键词/标签/时间过滤、编辑态、置顶、折叠展开）与列表内交互，通过 handlers 与外部通信
 import { SITE } from './config.js';
 import { esc, escAttr, fmtContent, timeAgo, fmtFull } from './utils.js';
 
@@ -9,14 +9,26 @@ const emptyEl = document.getElementById('emptyState');
 const emptyTextEl = emptyEl.querySelector('p');
 const countEl = document.getElementById('postCount');
 const filterBarEl = document.getElementById('filterBar');
+const filterDateEl = document.getElementById('filterDate');
+const pinnedWrapEl = document.getElementById('pinnedWrap');
+const pinnedListEl = document.getElementById('pinnedList');
+const listToggleEl = document.getElementById('listToggle');
+const listToggleBtn = document.getElementById('listToggleBtn');
+
+// 普通动态列表默认展示条数，超过则折叠为“展开全部”
+const DEFAULT_SHOW = 5;
 
 export function initFeed(h) {
   handlers = h;
   listEl.addEventListener('click', onClick);
   listEl.addEventListener('input', onInput);
   listEl.addEventListener('keydown', onKeyDown);
+  pinnedListEl.addEventListener('click', onClick);
+  pinnedListEl.addEventListener('input', onInput);
+  pinnedListEl.addEventListener('keydown', onKeyDown);
   filterBarEl.addEventListener('click', onFilterClick);
-  filterBarEl.addEventListener('change', onFilterChange);
+  filterDateEl.addEventListener('change', onDateChange);
+  listToggleBtn.addEventListener('click', () => handlers.onListToggle?.());
 }
 
 /* ---------- 标签 / 时间工具 ---------- */
@@ -57,47 +69,84 @@ function visiblePosts(state) {
 export function renderFeed(state) {
   renderFilterBar(state);
 
-  const posts = visiblePosts(state);
+  const all = visiblePosts(state);
+  const pinned = all.filter((p) => p.pinned);
+  const normal = all.filter((p) => !p.pinned);
   const filtered = hasFilter(state);
 
   countEl.textContent = state.posts.length
-    ? (filtered ? `${posts.length}/${state.posts.length} 条` : `共 ${state.posts.length} 条`)
+    ? (filtered ? `${all.length}/${state.posts.length} 条` : `共 ${state.posts.length} 条`)
     : '';
 
-  const empty = posts.length === 0;
+  const empty = all.length === 0;
   emptyEl.classList.toggle('hidden', !empty);
   if (empty) {
     emptyTextEl.textContent = filtered ? '没有符合筛选条件的动态' : '还没有动态，发布第一条想法吧';
   }
 
-  // 编辑中的条目保留现有 DOM 节点，避免搜索/筛选触发的重渲染丢失正在输入的内容
-  const editingLi = listEl.querySelector('li.post.editing');
-  const preserve = editingLi && editingLi.dataset.id === state.editingId ? editingLi : null;
+  // 置顶模块：无置顶帖时整体隐藏
+  pinnedWrapEl.classList.toggle('hidden', pinned.length === 0);
 
-  listEl.innerHTML = posts
-    .map((p) => (preserve && p.id === state.editingId
-      ? `<li data-slot="${escAttr(p.id)}"></li>`
-      : postHtml(p, state)))
-    .join('');
+  // 普通动态默认折叠为 5 条；编辑中的帖子强制保留可见，避免编辑框被折叠掉
+  let shown = state.listExpanded ? normal : normal.slice(0, DEFAULT_SHOW);
+  if (state.editingId && !shown.some((p) => p.id === state.editingId)) {
+    const editing = normal.find((p) => p.id === state.editingId);
+    if (editing) shown = shown.concat(editing);
+  }
+
+  renderList(pinnedListEl, pinned, state);
+  renderList(listEl, shown, state);
+
+  // 普通动态多于 DEFAULT_SHOW 条时显示“展开全部/收起”
+  if (normal.length > DEFAULT_SHOW) {
+    listToggleEl.classList.remove('hidden');
+    listToggleBtn.textContent = state.listExpanded ? '收起' : `展开全部（共 ${normal.length} 条）`;
+  } else {
+    listToggleEl.classList.add('hidden');
+  }
+
+  afterRender(state);
+}
+
+// 渲染单个列表；若列表中存在正在编辑的条目，保留其 DOM 节点避免输入丢失
+function renderList(el, posts, state) {
+  const editingId = state.editingId;
+  const editingLi = el.querySelector('li.post.editing');
+  const preserve = editingLi && editingLi.dataset.id === editingId ? editingLi : null;
 
   if (preserve) {
-    listEl.querySelector(`[data-slot="${CSS.escape(state.editingId)}"]`)?.replaceWith(preserve);
-    return; // 保留节点时不动焦点
+    el.innerHTML = posts
+      .map((p) => (p.id === editingId
+        ? `<li data-slot="${escAttr(p.id)}"></li>`
+        : postHtml(p, state)))
+      .join('');
+    el.querySelector(`[data-slot="${CSS.escape(editingId)}"]`)?.replaceWith(preserve);
+  } else {
+    el.innerHTML = posts.map((p) => postHtml(p, state)).join('');
   }
+}
+
+function afterRender(state) {
+  // 单帖内容 3 行折叠检测：未超过 3 行则隐藏“展开”按钮
+  [listEl, pinnedListEl].forEach((el) => {
+    el.querySelectorAll('.post-content.clamped').forEach(initContentClamp);
+  });
 
   // 进入编辑态：自动聚焦。必须延迟到下一帧再 focus + setSelectionRange，
   // 同一帧内 innerHTML + 选区操作会破坏 Windows 中文输入法的组合输入（表现为无法键入、只能粘贴）
-  const area = listEl.querySelector('.edit-area');
-  if (area) {
-    requestAnimationFrame(() => {
-      area.focus();
-      area.setSelectionRange(area.value.length, area.value.length);
-    });
+  if (state.editingId) {
+    const area = listEl.querySelector('.edit-area') || pinnedListEl.querySelector('.edit-area');
+    if (area) {
+      requestAnimationFrame(() => {
+        area.focus();
+        area.setSelectionRange(area.value.length, area.value.length);
+      });
+    }
   }
 }
 
 function renderFilterBar(state) {
-  // 汇总全部动态的标签（按出现次数降序）与月份（降序）
+  // 汇总全部动态的标签（按出现次数降序）
   const tagCount = new Map();
   for (const p of state.posts) {
     for (const t of postTags(p)) tagCount.set(t, (tagCount.get(t) || 0) + 1);
@@ -106,25 +155,38 @@ function renderFilterBar(state) {
   // 当前筛选的标签即使已无帖子也保留为可点击的 chip，便于取消筛选
   if (state.tag && !tags.includes(state.tag)) tags.unshift(state.tag);
 
-  const months = [...new Set(state.posts.map((p) => monthKey(p.createdAt)))].sort().reverse();
-
-  if (!tags.length && months.length <= 1 && !state.month) {
+  if (!tags.length) {
     filterBarEl.classList.add('hidden');
     filterBarEl.innerHTML = '';
-    return;
+  } else {
+    filterBarEl.innerHTML = `
+      <div class="chips-row">
+        <div class="filter-chips">
+          ${tags.map((t) => `
+            <button class="filter-chip${state.tag === t ? ' active' : ''}" type="button" data-tag="${escAttr(t)}">#${esc(t)}#</button>`).join('')}
+        </div>
+        <button class="chips-toggle hidden" type="button" data-chips-toggle aria-expanded="false">展开</button>
+      </div>`;
+    filterBarEl.classList.remove('hidden');
+
+    // 标签超过一行时显示“展开”按钮（nowrap 溢出检测）
+    const chips = filterBarEl.querySelector('.filter-chips');
+    const toggle = filterBarEl.querySelector('.chips-toggle');
+    if (chips && toggle && chips.scrollWidth > chips.clientWidth) {
+      toggle.classList.remove('hidden');
+    }
   }
 
-  filterBarEl.classList.remove('hidden');
-  filterBarEl.innerHTML = `
-    <div class="filter-chips">
-      ${tags.map((t) => `
-        <button class="filter-chip${state.tag === t ? ' active' : ''}" type="button" data-tag="${escAttr(t)}">#${esc(t)}#</button>`).join('')}
-    </div>
-    ${months.length > 1 || state.month ? `
-    <select class="filter-select" aria-label="按时间筛选">
-      <option value="">全部时间</option>
-      ${months.map((m) => `<option value="${m}"${state.month === m ? ' selected' : ''}>${m}</option>`).join('')}
-    </select>` : ''}`;
+  // 时间筛选（动态模块右上角）：有动态时提供月份选项
+  const months = [...new Set(state.posts.map((p) => monthKey(p.createdAt)))].sort().reverse();
+  if (state.posts.length) {
+    filterDateEl.classList.remove('hidden');
+    filterDateEl.innerHTML = '<option value="">全部时间</option>' +
+      months.map((m) => `<option value="${m}"${state.month === m ? ' selected' : ''}>${m}</option>`).join('');
+  } else {
+    filterDateEl.classList.add('hidden');
+    filterDateEl.innerHTML = '';
+  }
 }
 
 function postHtml(p, state) {
@@ -132,6 +194,10 @@ function postHtml(p, state) {
 
   const actions = state.authed ? `
     <div class="post-actions">
+      <button class="act-btn${p.pinned ? ' pinned' : ''}" type="button" data-pin="${escAttr(p.id)}" title="${p.pinned ? '取消置顶' : '置顶'}">
+        <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 17v5"/><path d="M9 10.76V2h6v8.76L17.5 13h-11L9 10.76z"/></svg>
+        ${p.pinned ? '取消置顶' : '置顶'}
+      </button>
       <button class="act-btn" type="button" data-edit="${escAttr(p.id)}" title="编辑">
         <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>
         编辑
@@ -144,7 +210,8 @@ function postHtml(p, state) {
 
   return `
     <li class="post" data-id="${escAttr(p.id)}">
-      <div class="post-content">${fmtContent(p.content, state.query)}</div>
+      <div class="post-content clamped">${fmtContent(p.content, state.query)}</div>
+      <button class="post-expand hidden" type="button" data-expand aria-expanded="false">展开</button>
       <div class="post-meta">
         <time datetime="${new Date(p.createdAt).toISOString()}" title="${fmtFull(p.createdAt)}">${timeAgo(p.createdAt)}</time>
         ${p.updatedAt ? `<span class="edited-tag" title="${fmtFull(p.updatedAt)}">已编辑</span>` : ''}
@@ -174,11 +241,33 @@ function onClick(e) {
   const id = li?.dataset.id;
   if (btn.dataset.del) handlers.onDelete?.(id);
   else if (btn.dataset.edit) handlers.onEdit?.(id);
+  else if (btn.hasAttribute('data-pin')) handlers.onTogglePin?.(id);
+  else if (btn.hasAttribute('data-expand')) togglePostExpand(btn);
   else if (btn.hasAttribute('data-cancel')) handlers.onCancelEdit?.();
   else if (btn.hasAttribute('data-save')) {
     const area = li.querySelector('.edit-area');
     if (area.value.trim()) handlers.onSaveEdit?.(id, area.value);
   }
+}
+
+function togglePostExpand(btn) {
+  const li = btn.closest('li');
+  const content = li.querySelector('.post-content');
+  const expanded = content.classList.toggle('expanded');
+  btn.textContent = expanded ? '收起' : '展开';
+  btn.setAttribute('aria-expanded', String(expanded));
+}
+
+// 检测单帖内容是否超过 3 行，未超过则隐藏“展开”按钮
+function initContentClamp(contentEl) {
+  const li = contentEl.closest('li');
+  const btn = li?.querySelector('.post-expand');
+  if (!btn) return;
+  const clampedH = contentEl.clientHeight; // 3 行截断时的高度
+  contentEl.classList.add('no-clamp'); // 临时移除截断，读取完整高度
+  const fullH = contentEl.scrollHeight;
+  contentEl.classList.remove('no-clamp');
+  btn.classList.toggle('hidden', fullH <= clampedH + 1);
 }
 
 function onInput(e) {
@@ -199,10 +288,19 @@ function onKeyDown(e) {
 
 function onFilterClick(e) {
   const chip = e.target.closest('[data-tag]');
-  if (chip) handlers.onTagSelect?.(chip.dataset.tag);
+  if (chip) {
+    handlers.onTagSelect?.(chip.dataset.tag);
+    return;
+  }
+  const toggle = e.target.closest('[data-chips-toggle]');
+  if (toggle) {
+    const chips = toggle.parentElement.querySelector('.filter-chips');
+    const expanded = chips.classList.toggle('expanded');
+    toggle.textContent = expanded ? '收起' : '展开';
+    toggle.setAttribute('aria-expanded', String(expanded));
+  }
 }
 
-function onFilterChange(e) {
-  const select = e.target.closest('select');
-  if (select) handlers.onMonthSelect?.(select.value);
+function onDateChange(e) {
+  handlers.onMonthSelect?.(e.target.value);
 }
