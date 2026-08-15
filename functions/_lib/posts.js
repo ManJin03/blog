@@ -9,7 +9,7 @@ const INDEX_KEY = 'posts:index';
 const postKey = (id) => `post:${id}`;
 const LEGACY_KEY = 'posts';
 
-export const MAX_LEN = 500;
+export const MAX_LEN = 1000;
 
 function metaOf({ id, createdAt, updatedAt, pinned }) {
   return { id, createdAt, updatedAt, pinned };

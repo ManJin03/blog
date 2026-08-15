@@ -14,7 +14,7 @@ export const SITE = {
     friend: 'https://homepage-afl.pages.dev/',
   },
   // 单条动态字数上限，需与 functions/_lib/posts.js 的 MAX_LEN 保持一致
-  maxPostLen: 500,
+  maxPostLen: 1000,
   // 友情链接（显示在个人资料底部）
   friendLink: {
     name: 'Young man 的个人主页',
