@@ -240,6 +240,13 @@ function setupAvatar() {
   img.src = SITE.avatar;
 }
 
+/* ---------- 状态栏：显示当前在学习/在做的东西 ---------- */
+function setupStatus() {
+  const text = document.getElementById('statusText');
+  if (!text) return;
+  text.textContent = SITE.status || '暂无状态';
+}
+
 /* ---------- 右侧导航高亮（滚动联动） ---------- */
 function setupSideNav() {
   const links = Array.from(document.querySelectorAll('.side-link'));
@@ -328,6 +335,7 @@ function setupProgress() {
   // 页面增强模块（不依赖后端）
   renderWorks();
   setupAvatar();
+  setupStatus();
   setupSideNav();
   setupReveal();
   setupClock();

@@ -284,6 +284,55 @@ a, button, input, textarea, select, .side-link, .filter-chip, .works-card, .post
 
 .bio { margin: 4px 0 0; color: var(--muted); font-size: 14px; }
 
+/* 状态栏：当前在学习 / 在做的东西 */
+.status-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 10px 0 0;
+  padding: 8px 12px;
+  border-radius: 10px;
+  background: var(--hover);
+  border: 1px solid var(--border);
+  font-size: 13px;
+  color: var(--text);
+  cursor: default;
+  transition: border-color 0.2s, background 0.2s;
+}
+.status-bar:hover {
+  border-color: rgba(47, 107, 237, 0.4);
+  background: var(--hover);
+  align-items: flex-start;
+}
+.status-dot {
+  flex: none;
+  width: 9px;
+  height: 9px;
+  margin-top: 5px;
+  border-radius: 50%;
+  background: #2ecc71;
+  box-shadow: 0 0 0 0 rgba(46, 204, 113, 0.6);
+  animation: statusPulse 1.8s ease-out infinite;
+}
+@keyframes statusPulse {
+  0%   { box-shadow: 0 0 0 0 rgba(46, 204, 113, 0.55); }
+  70%  { box-shadow: 0 0 0 7px rgba(46, 204, 113, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(46, 204, 113, 0); }
+}
+/* 默认单行省略；鼠标悬停后展开为多行完整文本 */
+.status-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  transition: white-space 0.15s;
+}
+.status-bar:hover .status-text {
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
+}
+
 .profile-desc { margin: 12px 0 0; font-size: 13px; color: var(--text); opacity: 0.85; line-height: 1.7; }
 
 .tags { margin-top: 12px; display: flex; gap: 8px; flex-wrap: wrap; }
