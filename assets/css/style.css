@@ -605,7 +605,7 @@ body {
   to { opacity: 1; transform: none; }
 }
 
-.post-content { font-size: 16px; word-break: break-word; white-space: pre-wrap; }
+.post-content { font-size: 16px; word-break: break-word; }
 
 /* 单帖内容默认只显示 3 行，展开后显示全部 */
 .post-content.clamped {
@@ -635,6 +635,49 @@ body {
 .post-content a:hover { text-decoration: underline; }
 
 .post-content .topic { color: var(--accent); }
+
+/* Markdown 渲染的帖子内容 */
+.post-content p { margin: 0 0 8px; }
+.post-content p:last-child { margin-bottom: 0; }
+.post-content h3,
+.post-content h4,
+.post-content h5,
+.post-content h6 { margin: 10px 0 6px; line-height: 1.5; }
+.post-content h3 { font-size: 1.15em; }
+.post-content h4 { font-size: 1.08em; }
+.post-content h5,
+.post-content h6 { font-size: 1.02em; }
+.post-content blockquote {
+  margin: 8px 0;
+  padding: 6px 12px;
+  border-left: 3px solid var(--accent);
+  border-radius: 0 8px 8px 0;
+  background: var(--hover);
+  color: var(--muted);
+}
+.post-content ul,
+.post-content ol { margin: 6px 0; padding-left: 22px; }
+.post-content li { margin: 3px 0; }
+.post-content hr { border: none; border-top: 1px solid var(--border); margin: 12px 0; }
+.post-content pre {
+  margin: 8px 0;
+  padding: 10px 12px;
+  background: var(--hover);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow-x: auto;
+  font-size: 13px;
+  line-height: 1.55;
+}
+.post-content code {
+  font-family: "SF Mono", Consolas, "JetBrains Mono", "Courier New", monospace;
+  font-size: 0.9em;
+  background: var(--hover);
+  border-radius: 4px;
+  padding: 1px 5px;
+}
+.post-content pre code { background: none; border: none; padding: 0; font-size: inherit; }
+.post-content del { color: var(--muted); }
 
 mark { background: var(--mark); color: inherit; border-radius: 2px; padding: 0 1px; }
 
