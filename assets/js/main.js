@@ -223,6 +223,23 @@ function escapeHtml(s) {
   ));
 }
 
+/* ---------- 头像：使用 GitHub 头像，加载失败回退字母 ---------- */
+function setupAvatar() {
+  const box = document.getElementById('avatarBox');
+  if (!box || !SITE.avatar) return;
+  const img = new Image();
+  img.alt = `${SITE.name} 头像`;
+  img.className = 'avatar-img';
+  img.loading = 'lazy';
+  img.onload = () => {
+    box.textContent = '';
+    box.appendChild(img);
+    box.setAttribute('aria-label', `${SITE.name} 头像`);
+  };
+  img.onerror = () => { /* 保留 MJ 兜底文字 */ };
+  img.src = SITE.avatar;
+}
+
 /* ---------- 右侧导航高亮（滚动联动） ---------- */
 function setupSideNav() {
   const links = Array.from(document.querySelectorAll('.side-link'));
@@ -310,6 +327,7 @@ function setupProgress() {
 
   // 页面增强模块（不依赖后端）
   renderWorks();
+  setupAvatar();
   setupSideNav();
   setupReveal();
   setupClock();

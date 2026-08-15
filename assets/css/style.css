@@ -51,8 +51,24 @@ body {
 .hidden { display: none !important; }
 
 /* 全局圆点光标（对链接/按钮等可点元素同样生效） */
-a, button, input, textarea, .side-link, .filter-chip, .works-card, .post {
+a, button, input, textarea, select, .side-link, .filter-chip, .works-card, .post, .social-link, .auth-btn, .nav-link {
   cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16'%3E%3Ccircle cx='8' cy='8' r='3.5' fill='%232f6bed'/%3E%3C/svg%3E") 8 8, auto;
+}
+
+/* 精确指针（鼠标）设备：隐藏系统光标，统一由 JS 圆点层接管，避免按钮处出现原生箭头 */
+@media (pointer: fine) {
+  html, body,
+  a, button, input, textarea, select, .side-link, .filter-chip,
+  .works-card, .post, .social-link, .auth-btn, .nav-link, .search-clear,
+  .act-btn, .modal-close, .brand {
+    cursor: none;
+  }
+  /* 悬停可点元素时，JS 圆点已放大高亮；系统光标保持隐藏 */
+  a:hover, button:hover, input:hover, textarea:hover, select:hover,
+  .side-link:hover, .filter-chip:hover, .works-card:hover, .post:hover,
+  .social-link:hover, .auth-btn:hover, .nav-link:hover {
+    cursor: none;
+  }
 }
 
 /* ---------- 跟随光标的圆点（纯视觉，不干扰阅读） ---------- */
@@ -250,6 +266,14 @@ a, button, input, textarea, .side-link, .filter-chip, .works-card, .post {
   align-items: center;
   justify-content: center;
   box-shadow: 0 4px 14px rgba(47, 107, 237, 0.35);
+  overflow: hidden;
+}
+
+.avatar-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
 }
 
 .profile-info { min-width: 0; margin-top: 14px; }
