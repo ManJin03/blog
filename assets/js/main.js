@@ -31,6 +31,7 @@ const state = {
   month: '',       // 选中的时间筛选（YYYY-MM，空为全部）
   editingId: null, // 正在编辑的动态 id
   listExpanded: false, // 普通动态列表是否已展开（默认折叠为 5 条）
+  chipsExpanded: false, // 标签栏是否已展开（默认只显示一行）
 };
 
 function render() {
@@ -127,6 +128,10 @@ initFeed({
   },
   onListToggle() {
     state.listExpanded = !state.listExpanded;
+    render();
+  },
+  onChipsToggle() {
+    state.chipsExpanded = !state.chipsExpanded;
     render();
   },
   async onTogglePin(id) {

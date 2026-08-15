@@ -169,11 +169,18 @@ function renderFilterBar(state) {
       </div>`;
     filterBarEl.classList.remove('hidden');
 
-    // 标签超过一行时显示“展开”按钮（nowrap 溢出检测）
+    // 标签超过一行时显示“展开/收起”按钮（需先按未展开的 nowrap 状态检测溢出）
     const chips = filterBarEl.querySelector('.filter-chips');
     const toggle = filterBarEl.querySelector('.chips-toggle');
-    if (chips && toggle && chips.scrollWidth > chips.clientWidth) {
-      toggle.classList.remove('hidden');
+    if (chips && toggle) {
+      const overflow = chips.scrollWidth > chips.clientWidth;
+      if (overflow) {
+        toggle.classList.remove('hidden');
+        // 展开状态存于全局 state，点击标签触发重渲染后依然保留
+        toggle.textContent = state.chipsExpanded ? '收起' : '展开';
+        toggle.setAttribute('aria-expanded', String(state.chipsExpanded));
+        if (state.chipsExpanded) chips.classList.add('expanded');
+      }
     }
   }
 
@@ -294,10 +301,7 @@ function onFilterClick(e) {
   }
   const toggle = e.target.closest('[data-chips-toggle]');
   if (toggle) {
-    const chips = toggle.parentElement.querySelector('.filter-chips');
-    const expanded = chips.classList.toggle('expanded');
-    toggle.textContent = expanded ? '收起' : '展开';
-    toggle.setAttribute('aria-expanded', String(expanded));
+    handlers.onChipsToggle?.();
   }
 }
 
