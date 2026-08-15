@@ -248,7 +248,7 @@ function escapeHtml(s) {
   ));
 }
 
-/* ---------- 头像：使用 GitHub 头像，加载失败回退字母 ---------- */
+/* ---------- 头像：使用 GitHub 头像，加载失败回退本地 head.jpg，再失败回退字母 ---------- */
 function setupAvatar() {
   const box = document.getElementById('avatarBox');
   if (!box || !SITE.avatar) return;
@@ -261,7 +261,13 @@ function setupAvatar() {
     box.appendChild(img);
     box.setAttribute('aria-label', `${SITE.name} 头像`);
   };
-  img.onerror = () => { /* 保留 MJ 兜底文字 */ };
+  img.onerror = () => {
+    if (img.src !== SITE.fallbackAvatar) {
+      // 首选网络头像失败，尝试本地兜底图
+      img.src = SITE.fallbackAvatar;
+    }
+    // 若本地兜底图也失败，保留原字母 MJ 兜底
+  };
   img.src = SITE.avatar;
 }
 

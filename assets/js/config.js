@@ -3,6 +3,7 @@ export const SITE = {
   name: 'ManJin',
   handle: '@ManJin03',
   avatar: 'https://github.com/ManJin03.png',
+  fallbackAvatar: 'assets/head.jpg',
   bio: '学生 · 西安交通大学大三在读',
   status: '正在学习 Linux 内核与系统编程，折腾 Cloudflare Pages 部署',
   desc: '🎯 Focusing. 喜欢在代码与光影之间寻找秩序感，记录学习路上的点滴思考。',
