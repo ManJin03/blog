@@ -1,7 +1,7 @@
 // 最新文章接口：代理抓取技术博客的 RSS feed，返回最新一篇文章
 // 技术博客无 CORS 头，前端无法直接跨域抓取，故由 Functions 在服务端代理
 import { json } from '../_lib/http.js';
-const BLOG_URL = 'https://tech-manjin.pages.dev/';
+const BLOG_URL = 'https://tech-manjin.pages.dev';
 const FEED_URL = `${BLOG_URL}/feed.xml`;
 // 内存缓存（单实例内有效，约 10 分钟），避免每次首页访问都重复抓取 feed
 const CACHE_TTL = 10 * 60 * 1000;
@@ -50,7 +50,7 @@ function parseFeed(xml) {
         .trim();
     if (excerpt.length > 140) excerpt = excerpt.slice(0, 140) + '…';
 
-    let url = '';
+    let url = BLOG_URL;
     try {
         const u = new URL(rawLink, BLOG_URL);
         u.host = new URL(BLOG_URL).host;
@@ -73,8 +73,8 @@ export async function onRequestGet() {
     if (cache.data && now - cache.time < CACHE_TTL) {
         return json({ latestPost: cache.data });
     }
-    // 源站偶发返回无 <item> 的空 feed，最多重试 2 次再决定是否回退
-    for (let attempt = 0; attempt < 2; attempt++) {
+    // 源站偶发返回无 <item> 的空 feed，最多重试 3 次再决定是否回退
+    for (let attempt = 0; attempt < 3; attempt++) {
         try {
             const res = await fetch(FEED_URL, {
                 headers: { 'user-agent': 'manjin-home/1.0 (+latest-post)' },

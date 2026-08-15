@@ -305,7 +305,7 @@ async function setupLatestPost() {
   }
   const tags = (p.tags || []).map((t) => `<span class="latest-tag">#${escapeHtml(t)}</span>`).join('');
   box.innerHTML = `
-    <a class="latest-link" href="${encodeURI(p.url)}" target="_blank" rel="noopener noreferrer">
+    <a class="latest-link" href="${escapeHtml(p.url)}" target="_blank" rel="noopener noreferrer">
       <div class="latest-meta">
         <span class="latest-badge">文章</span>
         ${p.date ? `<span class="latest-date">${escapeHtml(p.date)}</span>` : ''}
