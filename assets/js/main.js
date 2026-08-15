@@ -2,6 +2,7 @@
 import { SITE } from './config.js';
 import * as api from './api.js';
 import { initFeed, renderFeed } from './feed.js';
+import { toast, confirmBox } from './toast.js';
 
 const $ = (sel) => document.querySelector(sel);
 
@@ -65,7 +66,7 @@ async function submitPost() {
     state.editingId = null;
     render();
   } catch (err) {
-    alert(err.message);
+    toast(err.message, 'error');
   } finally {
     els.postBtn.textContent = '发布';
     updateCharCount();
@@ -108,18 +109,23 @@ initFeed({
       state.editingId = null;
       render();
     } catch (err) {
-      alert(err.message);
+      toast(err.message, 'error');
     }
   },
   async onDelete(id) {
-    if (!confirm('确定删除这条动态吗？')) return;
+    const ok = await confirmBox({
+      message: '确定删除这条动态吗？删除后无法恢复。',
+      confirmText: '删除',
+      danger: true,
+    });
+    if (!ok) return;
     try {
       await api.deletePost(id);
       state.posts = state.posts.filter((p) => p.id !== id);
       if (state.editingId === id) state.editingId = null;
       render();
     } catch (err) {
-      alert(err.message);
+      toast(err.message, 'error');
     }
   },
   onTagSelect(tag) {
@@ -146,7 +152,7 @@ initFeed({
       state.posts = state.posts.map((x) => (x.id === id ? post : x));
       render();
     } catch (err) {
-      alert(err.message);
+      toast(err.message, 'error');
     }
   },
 });

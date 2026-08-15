@@ -987,6 +987,130 @@ mark { background: var(--mark); color: inherit; border-radius: 2px; padding: 0 1
 
 #loginForm .publish-btn { margin-top: 14px; }
 
+/* ---------- 自定义消息弹窗（替代原生 alert/confirm，不影响自定义光标） ---------- */
+.toast-stack {
+  position: fixed;
+  left: 50%;
+  bottom: 28px;
+  transform: translateX(-50%);
+  z-index: 55; /* 低于 .focus-cursor(60)，圆点始终可见 */
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  max-width: min(92vw, 420px);
+  pointer-events: none;
+}
+
+.toast {
+  pointer-events: auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 100%;
+  padding: 10px 16px;
+  font-size: 14px;
+  color: var(--text);
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: var(--shadow);
+  opacity: 1;
+  transform: translateY(0);
+  animation: toastIn 0.25s ease;
+  transition: opacity 0.25s ease, transform 0.25s ease;
+}
+
+.toast::before {
+  content: "";
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+
+.toast-error::before { background: var(--danger); }
+.toast-success::before { background: #2ecc71; }
+
+.toast.is-leaving { opacity: 0; transform: translateY(10px); }
+
+@keyframes toastIn {
+  from { opacity: 0; transform: translateY(10px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* 轻量确认框：底部居中，超时自动关闭（视为取消） */
+.toast-confirm {
+  position: fixed;
+  left: 50%;
+  bottom: 28px;
+  transform: translateX(-50%) translateY(12px);
+  z-index: 55;
+  width: max-content;
+  max-width: min(92vw, 380px);
+  padding: 14px 16px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  box-shadow: var(--shadow);
+  overflow: hidden;
+  opacity: 0;
+  transition: opacity 0.25s ease, transform 0.25s ease;
+}
+
+.toast-confirm.is-in { opacity: 1; transform: translateX(-50%) translateY(0); }
+.toast-confirm.is-leaving { opacity: 0; transform: translateX(-50%) translateY(12px); }
+
+.toast-confirm .confirm-msg { margin: 0 0 12px; font-size: 14px; line-height: 1.6; color: var(--text); }
+
+.toast-confirm .confirm-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.toast-confirm .confirm-btn {
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--muted);
+  padding: 6px 16px;
+  border-radius: 999px;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  transition: color 0.15s, border-color 0.15s, opacity 0.15s;
+}
+
+.toast-confirm .confirm-btn.ghost:hover { color: var(--accent); border-color: var(--accent); }
+
+.toast-confirm .confirm-btn.primary,
+.toast-confirm .confirm-btn.danger {
+  border: none;
+  color: #fff;
+}
+
+.toast-confirm .confirm-btn.primary { background: var(--accent-grad); box-shadow: 0 3px 10px var(--glow); }
+.toast-confirm .confirm-btn.danger { background: var(--danger); box-shadow: 0 3px 10px rgba(229, 72, 77, 0.3); }
+.toast-confirm .confirm-btn:hover { opacity: 0.9; }
+
+.toast-confirm .confirm-timer {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  height: 3px;
+  width: 100%;
+  background: var(--accent-grad);
+  transform-origin: left;
+  opacity: 0.7;
+  animation: confirmCountdown linear forwards;
+}
+
+@keyframes confirmCountdown {
+  from { transform: scaleX(1); }
+  to { transform: scaleX(0); }
+}
+
 /* ---------- 响应式 ---------- */
 @media (max-width: 980px) {
   .layout { grid-template-columns: minmax(0, 1fr); }
