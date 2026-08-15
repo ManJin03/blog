@@ -9,6 +9,7 @@
 - 顶部导航栏：站名、Vercount 访客计数、动态搜索、GitHub / 技术博客链接、右上角登录按钮
 - 个人资料卡片：ManJin · 学生 · 西安交通大学大三在读 · C/C++ / Linux
 - 微博式动态流：发帖（500 字以内，支持换行、链接、`#话题#` 高亮）、**编辑**、删除
+- 最新文章：首页实时拉取技术博客（tech-manjin.pages.dev）RSS 最新一篇，接口不可用时回退到本地配置
 - 检索：关键词搜索（命中高亮）+ 标签筛选（`#话题#` 自动汇总为标签）+ 时间筛选（按月），可组合使用
 - 站长身份验证：密码登录，HMAC 签名的 HttpOnly Cookie 会话（7 天有效），未登录只能浏览
 
@@ -28,12 +29,13 @@
 │   ├── _lib/                   # 共享模块（不生成路由）
 │   │   ├── http.js             # JSON 响应工具
 │   │   ├── auth.js             # 会话签发与校验（HMAC Cookie）
-│   │   └── posts.js            # 帖子数据访问与内容校验
+│   │   └── posts.js            # 帖子数据访问与内容校验（KV 结构见下文）
 │   └── api/                    # /api/* 接口
 │       ├── _middleware.js      # 会话校验中间件
-│       ├── me.js               # GET     /api/me        登录状态
-│       ├── login.js            # POST    /api/login     登录 / DELETE 退出
-│       ├── posts.js            # GET/POST /api/posts    列表 / 发帖
+│       ├── me.js               # GET     /api/me         登录状态
+│       ├── login.js            # POST    /api/login      登录 / DELETE 退出
+│       ├── latest-post.js      # GET     /api/latest-post 技术博客最新文章（代理 RSS）
+│       ├── posts.js            # GET/POST /api/posts     列表 / 发帖
 │       └── posts/[id].js       # PATCH/DELETE /api/posts/:id  编辑 / 删除/
 └── .dev.vars                   # 本地开发用环境变量（不入库）
 ```
@@ -44,6 +46,7 @@
 - **加新的前端功能**：在 `assets/js/` 新增模块，由 `main.js` 接线；动态流相关改动集中在 `feed.js`
 - **加新的后端接口**：在 `functions/api/` 下新建文件即自动生成路由，共享逻辑放 `functions/_lib/`
 - **换数据存储**：只需替换 `functions/_lib/posts.js` 中的读写实现（如换 D1 / Durable Objects）
+- **换技术博客源**：修改 `functions/api/latest-post.js` 顶部的 `BLOG_URL`（feed 路径为 `<BLOG_URL>/feed.xml`）与 `assets/js/config.js` 中的 `latestPost` 回退配置
 
 ## 本地开发
 
@@ -54,6 +57,21 @@ npx wrangler pages dev .
 打开 <http://localhost:8880> ，本地密码在 `.dev.vars` 中（默认 `test123456`），本地 KV 数据保存在 `.wrangler/` 目录。端口可在 `wrangler.toml` 的 `[dev]` 表中修改，也可用 `--port` 参数临时覆盖。
 
 > 注：Vercount 统计脚本只在 `http(s)://` 页面下计数，本地 `http://127.0.0.1` 会计入 `127.0.0.1` 域名，不影响线上数据。
+
+## KV 存储结构
+
+动态数据存放在 KV 命名空间（绑定名 `KV`），采用"索引 + 独立键"结构：
+
+```
+posts:index          # 索引键：JSON 数组，按时间倒序存每帖元信息
+                     # [{ id, createdAt, updatedAt, pinned }, ...]
+post:{id}            # 每帖独立键：JSON 存完整帖子
+                     # { id, content, createdAt, updatedAt, pinned }
+```
+
+- 索引只存元信息，帖子内容按 id 独立存放，更新/删除单帖无需整数组读写
+- 旧版"全部帖子存于单个 `posts` 键"的数据会在首次读取时**自动迁移**到新结构并删除旧键，无需手动处理
+- 本地开发时数据位于 `.wrangler/` 目录（`miniflare` 模拟 KV）
 
 ## 部署到 Cloudflare Pages
 
@@ -80,6 +98,7 @@ npx wrangler pages dev .
 | GET | /api/me | - | 当前登录状态 |
 | POST | /api/login | - | 登录（body: `{"password":"..."}`） |
 | DELETE | /api/login | - | 退出登录 |
+| GET | /api/latest-post | - | 技术博客最新文章（服务端代理 RSS，10 分钟缓存） |
 | GET | /api/posts | - | 动态列表 |
 | POST | /api/posts | Cookie | 发布动态（body: `{"content":"..."}`） |
 | PATCH | /api/posts/:id | Cookie | 编辑动态（body: `{"content":"..."}`） |

@@ -1,7 +1,7 @@
 // GET  /api/posts —— 获取动态列表（无需登录）
 // POST /api/posts —— 发布动态（需登录）
 import { json } from '../_lib/http.js';
-import { readPosts, writePosts, parseContent } from '../_lib/posts.js';
+import { readPosts, addPost, parseContent } from '../_lib/posts.js';
 
 function kvMissing() {
   return json({ error: 'KV 存储未绑定，请查看 README 配置 KV 命名空间' }, 500);
@@ -26,9 +26,8 @@ export async function onRequestPost({ request, env, data }) {
   const parsed = parseContent(body);
   if (parsed.error) return json({ error: parsed.error }, 400);
 
-  const posts = await readPosts(env);
   const post = { id: crypto.randomUUID(), content: parsed.content, createdAt: Date.now() };
-  await writePosts(env, [post, ...posts]);
+  await addPost(env, post);
 
   return json({ post }, 201);
 }

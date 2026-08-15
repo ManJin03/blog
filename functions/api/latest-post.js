@@ -1,7 +1,7 @@
 // 最新文章接口：代理抓取技术博客的 RSS feed，返回最新一篇文章
 // 技术博客无 CORS 头，前端无法直接跨域抓取，故由 Functions 在服务端代理
 import { json } from '../_lib/http.js';
-
+const BLOG_URL = 'https://tech-manjin.pages.dev/';
 const FEED_URL = `${BLOG_URL}/feed.xml`;
 // 内存缓存（单实例内有效，约 10 分钟），避免每次首页访问都重复抓取 feed
 const CACHE_TTL = 10 * 60 * 1000;
