@@ -22,11 +22,11 @@ export const SITE = {
   },
   // 技术博客最新一篇文章（展示在"作品展示"与"关于我"之间；为空则显示"暂无"）
   latestPost: {
-    title: 'C++ 内存模型：从原子操作到 happens-before 关系',
-    url: 'https://tech-manjin.pages.dev/posts/cpp-memory-model-atomics.html',
-    excerpt: '理解 std::atomic 的六种内存序，关键不在于背 API，而在于建立 happens-before 与同步关系的心智模型。',
-    tags: ['C++', '并发', '内存模型', 'atomic'],
-    date: '2026/07/12',
+    title: '前往我的技术博客',
+    url: 'https://tech-manjin.pages.dev',
+    excerpt: '查看更多相关内容',
+    tags: [],
+    date: '2026/08/15',
   },
   // 作品展示（GitHub 公开仓库 + 精选）
   works: [

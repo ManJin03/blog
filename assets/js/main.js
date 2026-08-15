@@ -255,15 +255,16 @@ function setupAvatar() {
   const img = new Image();
   img.alt = `${SITE.name} 头像`;
   img.className = 'avatar-img';
-  img.loading = 'lazy';
+  let triedFallback = false;
   img.onload = () => {
     box.textContent = '';
     box.appendChild(img);
     box.setAttribute('aria-label', `${SITE.name} 头像`);
   };
   img.onerror = () => {
-    if (img.src !== SITE.fallbackAvatar) {
-      // 首选网络头像失败，尝试本地兜底图
+    if (!triedFallback && SITE.fallbackAvatar) {
+      // 首选网络头像失败，尝试本地兜底图（用标志位避免 src 比较失效导致的循环重试）
+      triedFallback = true;
       img.src = SITE.fallbackAvatar;
     }
     // 若本地兜底图也失败，保留原字母 MJ 兜底

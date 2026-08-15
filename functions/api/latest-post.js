@@ -14,6 +14,8 @@ function decodeXml(s = '') {
         .replace(/&gt;/g, '>')
         .replace(/&quot;/g, '"')
         .replace(/&#39;/g, "'")
+        .replace(/&apos;/g, "'")
+        .replace(/&#(\d+);/g, (_, n) => String.fromCharCode(Number(n)))
         .replace(/&amp;/g, '&');
 }
 
@@ -21,6 +23,17 @@ function decodeXml(s = '') {
 function tagText(block, name) {
     const m = block.match(new RegExp(`<${name}(?:\\s[^>]*)?>([\\s\\S]*?)<\\/${name}>`, 'i'));
     return m ? m[1].trim() : '';
+}
+
+// 取标签内所有同名子标签的文本（如 <category>，可能多个），去空去重
+function tagList(block, name) {
+    const re = new RegExp(`<${name}(?:\\s[^>]*)?>([\\s\\S]*?)<\\/${name}>`, 'ig');
+    const tags = [];
+    for (const m of block.matchAll(re)) {
+        const t = decodeXml(m[1].trim());
+        if (t && !tags.includes(t)) tags.push(t);
+    }
+    return tags;
 }
 
 function parseFeed(xml) {
@@ -37,6 +50,7 @@ function parseFeed(xml) {
         .trim();
     if (excerpt.length > 140) excerpt = excerpt.slice(0, 140) + '…';
 
+    let url = '';
     try {
         const u = new URL(rawLink, BLOG_URL);
         u.host = new URL(BLOG_URL).host;
@@ -48,7 +62,10 @@ function parseFeed(xml) {
     if (!Number.isNaN(d.getTime())) {
         date = `${d.getFullYear()}/${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')}`;
     }
-    return { title, url, excerpt, date };
+
+    // 新版 feed 用 <category> 携带文章标签
+    const tags = tagList(item, 'category');
+    return { title, url, excerpt, date, tags };
 }
 
 export async function onRequestGet() {
@@ -56,16 +73,21 @@ export async function onRequestGet() {
     if (cache.data && now - cache.time < CACHE_TTL) {
         return json({ latestPost: cache.data });
     }
-    try {
-        const res = await fetch(FEED_URL, {
-            headers: { 'user-agent': 'manjin-home/1.0 (+latest-post)' },
-        });
-        if (!res.ok) throw new Error(`feed ${res.status}`);
-        const feed = parseFeed(await res.text());
-        cache = { time: now, data: feed };
-        return json({ latestPost: feed });
-    } catch {
-        // 抓取或解析失败不报错，前端会回退到本地配置
-        return json({ latestPost: null }, 200, { 'cache-control': 'no-store' });
+    // 源站偶发返回无 <item> 的空 feed，最多重试 2 次再决定是否回退
+    for (let attempt = 0; attempt < 2; attempt++) {
+        try {
+            const res = await fetch(FEED_URL, {
+                headers: { 'user-agent': 'manjin-home/1.0 (+latest-post)' },
+            });
+            if (!res.ok) throw new Error(`feed ${res.status}`);
+            const feed = parseFeed(await res.text());
+            // 仅解析成功才写缓存，避免把 null 缓存 10 分钟导致持续抓取不到
+            if (feed) {
+                cache = { time: now, data: feed };
+                return json({ latestPost: feed });
+            }
+        } catch { /* 本轮失败，继续重试 */ }
     }
+    // 抓取或解析失败不报错，前端会回退到本地配置
+    return json({ latestPost: null }, 200, { 'cache-control': 'no-store' });
 }
