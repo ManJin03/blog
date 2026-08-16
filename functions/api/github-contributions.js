@@ -5,8 +5,12 @@
 //   3. days   —— 全年按"列优先"（周日开头，每周一列）排列的格子：{ date, level 0-4, count }
 //   4. years  —— 可用年份列表（用于前端年份切换，首次请求或参数变化时附带）
 // 用法：GET /api/github-contributions?year=2025 （缺省为当年）
-// 说明：GitHub 公开页无官方速率限制硬约束，但为稳妥仍做内存缓存（年份列表 12h，逐年数据 6h）。
+// 说明：GitHub 公开页无官方速率限制硬约束，但为稳妥仍做多层缓存：
+//   1. 内存热点缓存（年份列表 12h，逐年数据 6h）
+//   2. KV 持久化快照（24 小时，每天刷新一次，跨实例共享）
+//   3. GitHub 连不上时回退到 KV 中最近一次成功的数据（允许过期）
 import { json } from '../_lib/http.js';
+import { KEY_CONTRIBUTIONS, KV_TTL } from '../_lib/github-kv.js';
 
 const USERNAME = 'ManJin03';
 const LIST_TTL = 12 * 60 * 60 * 1000;
@@ -14,6 +18,50 @@ const YEAR_TTL = 6 * 60 * 60 * 1000;
 const FETCH_TIMEOUT = 25000; // 单次抓取超时，避免请求挂起拖垮函数
 let yearCache = new Map(); // year -> { time, data }
 let listCache = { time: 0, list: [] };
+
+// ---- KV 快照（{ years, byYear }）的内存镜像，避免每个请求都读 KV ----
+let kvSnap = null; // { time, data }
+
+async function getKvSnap(env) {
+  const now = Date.now();
+  if (kvSnap && now - kvSnap.time < KV_TTL * 1000) return kvSnap.data;
+  let data = { years: [], byYear: {} };
+  if (env && env.KV) {
+    try {
+      const raw = await env.KV.get(KEY_CONTRIBUTIONS, { type: 'json' });
+      if (raw && raw.savedAt && raw.data) {
+        kvSnap = { time: raw.savedAt, data: raw.data };
+        return kvSnap.data;
+      }
+    } catch { /* 忽略 */ }
+  }
+  kvSnap = { time: now, data };
+  return data;
+}
+
+async function putKvSnap(env, data) {
+  kvSnap = { time: Date.now(), data };
+  if (env && env.KV) {
+    try {
+      await env.KV.put(
+        KEY_CONTRIBUTIONS,
+        JSON.stringify({ savedAt: kvSnap.time, data }),
+        { expirationTtl: KV_TTL },
+      );
+    } catch { /* 写失败不影响主流程 */ }
+  }
+}
+
+// 读取 KV 快照，允许过期（GitHub 连不上时的最后兜底）
+async function kvSnapStale(env) {
+  if (!env || !env.KV) return null;
+  try {
+    const raw = await env.KV.get(KEY_CONTRIBUTIONS, { type: 'json' });
+    return raw && raw.data ? raw.data : null;
+  } catch {
+    return null;
+  }
+}
 
 const MONTHS = ['', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
@@ -81,22 +129,42 @@ function parseYearHtml(html, year) {
   return { total: tm ? Number(tm[1].replace(/,/g, '')) : 0, days };
 }
 
-async function getYear(year) {
+async function getYear(env, year) {
   const now = Date.now();
   const hit = yearCache.get(year);
   if (hit && now - hit.time < YEAR_TTL) return hit.data;
+
+  // KV 快照命中（24h 内成功保存过该年数据）
+  const snap = await getKvSnap(env);
+  if (snap.byYear[year]) {
+    yearCache.set(year, { time: now, data: snap.byYear[year] });
+    return snap.byYear[year];
+  }
+
   const url = `https://github.com/users/${USERNAME}/contributions?from=${year}-01-01&to=${year}-12-31`;
   const html = await fetchText(url);
   const data = { year, ...parseYearHtml(html, year) };
   yearCache.set(year, { time: now, data });
   if (yearCache.size > 12) yearCache.delete(yearCache.keys().next().value); // 防止无限增长
+
+  // 合并写回 KV 快照（该年数据 + 整体 TTL 刷新）
+  snap.byYear[year] = data;
+  await putKvSnap(env, snap);
   return data;
 }
 
 // 可用年份列表：从 REST API 的注册时间推导（注册年 → 今年），与 GitHub 主页展示一致
-async function getYears() {
+async function getYears(env) {
   const now = Date.now();
   if (listCache.list.length && now - listCache.time < LIST_TTL) return listCache.list;
+
+  // KV 快照命中（24h 内已保存过年份列表）
+  const snap = await getKvSnap(env);
+  if (snap.years && snap.years.length) {
+    listCache = { time: now, list: snap.years };
+    return snap.years;
+  }
+
   const res = await fetch(`https://api.github.com/users/${USERNAME}`, {
     headers: {
       'user-agent': 'Mozilla/5.0 (compatible; ManJin-home/1.0)',
@@ -110,16 +178,31 @@ async function getYears() {
   const years = [];
   for (let y = cur; y >= start; y--) years.push(y); // 倒序，最新在前
   listCache = { time: now, list: years };
+
+  // 合并写回 KV 快照（年份列表 + 整体 TTL 刷新）
+  snap.years = years;
+  await putKvSnap(env, snap);
   return years;
 }
 
 export async function onRequestGet(context) {
+  const env = (context && context.env) || {};
+  const url = new URL(context.request.url);
+  const year = Number(url.searchParams.get('year')) || new Date().getFullYear();
   try {
-    const url = new URL(context.request.url);
-    const year = Number(url.searchParams.get('year')) || new Date().getFullYear();
-    const [data, years] = await Promise.all([getYear(year), getYears()]);
+    const [data, years] = await Promise.all([getYear(env, year), getYears(env)]);
     return json({ ...data, years, months: MONTHS });
   } catch (err) {
+    // GitHub 连不上：回退到 KV 快照（允许过期），保证热力图仍可展示
+    const stale = await kvSnapStale(env);
+    if (stale) {
+      const data = stale.byYear[year] || { year, total: 0, days: [] };
+      return json({
+        ...data,
+        years: stale.years && stale.years.length ? stale.years : [year],
+        months: MONTHS,
+      });
+    }
     return json({ error: `GitHub 贡献数据获取失败：${err.message}` }, 502);
   }
 }

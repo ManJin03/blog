@@ -3,7 +3,14 @@
 //   2. repos    —— 本人公开仓库列表（用于"作品展示"实时更新）
 //   3. commits  —— 最近提交（GitHub 用户公开事件中的 PushEvent，仿 GitHub 主页活动流）
 // 前端若请求失败会回退到本地配置，因此这里出错时返回 500 即可。
+//
+// 缓存策略（四级降级，防止用户经常链接不到 GitHub）：
+//   1. 内存热点缓存（5 分钟，单实例内有效）
+//   2. KV 持久化缓存（24 小时，每天刷新一次，跨实例共享）
+//   3. 从 GitHub 实时拉取（成功即写回 KV）
+//   4. GitHub 连不上时回退到 KV 中最近一次成功的数据（允许过期）
 import { json } from '../_lib/http.js';
+import { KEY_PROFILE, kvRead, kvReadStale, kvWrite } from '../_lib/github-kv.js';
 
 const USERNAME = 'ManJin03';
 // 内存缓存（单实例内有效，5 分钟），既降低 GitHub API 调用量（未认证 60 次/h/IP），
@@ -110,14 +117,32 @@ async function fetchAll(env) {
 export async function onRequestGet(context) {
   const env = (context && context.env) || {};
   const now = Date.now();
+
+  // 1) 内存热点缓存（5 分钟）直接命中
   if (cache.data && now - cache.time < CACHE_TTL) {
     return json(cache.data);
   }
+
+  // 2) KV 持久化缓存（24 小时）：命中即返回，实现"每天只访问一次 GitHub"
+  const hit = await kvRead(env, KEY_PROFILE);
+  if (hit) {
+    cache = { time: now, data: hit };
+    return json(hit);
+  }
+
   try {
+    // 3) 缓存未命中：从 GitHub 拉取，成功后写回 KV（下次请求起 24h 内直接命中）
     const data = await fetchAll(env);
     cache = { time: now, data }; // 仅成功结果入缓存
+    await kvWrite(env, KEY_PROFILE, data);
     return json(data);
   } catch (err) {
+    // 4) GitHub 拉取失败：回退到 KV 中最近一次成功的数据（允许过期），保证页面可用
+    const stale = await kvReadStale(env, KEY_PROFILE);
+    if (stale) {
+      cache = { time: now, data: stale };
+      return json(stale);
+    }
     return json({ error: `GitHub 数据获取失败：${err.message}` }, 502);
   }
 }
