@@ -259,7 +259,38 @@ function escapeHtml(s) {
   ));
 }
 
-/* ---------- 头像：使用 GitHub 头像，加载失败回退本地 head.jpg，再失败回退字母 ---------- */
+// name 缩写：'Man Jin' → 'MJ'；'ManJin' → 'MJ'；'Man' → 'MA'
+function initials(name) {
+  const s = String(name || '').trim();
+  const parts = s.split(/\s+/);
+  if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
+  const caps = s.replace(/[^A-Z]/g, '');
+  return (caps.slice(0, 2) || s.slice(0, 2)).toUpperCase();
+}
+
+/* ---------- 站点文案：标签页标题 / 描述 / 品牌 / 页脚 / 站点图标（统一由 config.js 驱动） ---------- */
+function setupSiteText() {
+  const { title, description } = SITE.seo || {};
+  if (title) document.title = title;
+  if (description) {
+    const m = document.querySelector('meta[name="description"]');
+    if (m) m.content = description;
+  }
+  const setText = (id, v) => {
+    const el = document.getElementById(id);
+    if (el && v) el.textContent = v;
+  };
+  setText('brandName', SITE.name);
+  setText('footerCopy', SITE.footer);
+
+  // 站点图标：按 name 缩写动态生成 SVG（HTML 中内联的 MJ 仅作无 JS 兜底）
+  const abbr = initials(SITE.name);
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#4f8dff"/><stop offset="1" stop-color="#2f6bed"/></linearGradient></defs><rect width="64" height="64" rx="14" fill="url(#g)"/><text x="32" y="43" font-family="Arial,sans-serif" font-size="28" font-weight="bold" fill="#fff" text-anchor="middle">${escapeHtml(abbr)}</text></svg>`;
+  const link = document.querySelector('link[rel="icon"]');
+  if (link) link.href = 'data:image/svg+xml,' + encodeURIComponent(svg);
+}
+
+/* ---------- 头像：使用 GitHub 头像，加载失败回退本地 head.jpg，再失败回退 name 缩写 ---------- */
 function setupAvatar() {
   const box = document.getElementById('avatarBox');
   if (!box || !SITE.avatar) return;
@@ -277,10 +308,71 @@ function setupAvatar() {
       // 首选网络头像失败，尝试本地兜底图（用标志位避免 src 比较失效导致的循环重试）
       triedFallback = true;
       img.src = SITE.fallbackAvatar;
+      return;
     }
-    // 若本地兜底图也失败，保留原字母 MJ 兜底
+    // 本地兜底图也失败：显示 name 缩写字母兜底（替代硬编码的 MJ）
+    box.textContent = initials(SITE.name);
   };
   img.src = SITE.avatar;
+}
+
+/* ---------- 关于我（统一由 config.js 的 about 驱动） ---------- */
+function setupAbout() {
+  const textEl = document.getElementById('aboutText');
+  const { text, items } = SITE.about || {};
+  if (textEl && text) textEl.innerHTML = text; // 配置可控，允许 <strong> 等少量标签
+  const listEl = document.getElementById('aboutList');
+  if (listEl && Array.isArray(items) && items.length) {
+    listEl.innerHTML = items.map((s) => `<li><span class="dot"></span> ${escapeHtml(s)}</li>`).join('');
+  }
+}
+
+/* ---------- 邮箱（联系方式区，统一由 config.js 的 email 驱动） ---------- */
+function setupEmail() {
+  const el = document.getElementById('contactEmail');
+  if (!el || !SITE.email) return;
+  el.href = `mailto:${SITE.email}`;
+  el.textContent = SITE.email;
+}
+
+/* ---------- 个人资料：姓名 / 昵称 / 简介 / 标签（统一由 config.js 驱动） ---------- */
+function setupProfile() {
+  const setText = (id, v) => {
+    const el = document.getElementById(id);
+    if (el && v) el.textContent = v;
+  };
+  setText('profileName', SITE.name);
+  setText('profileHandle', SITE.handle);
+  setText('profileBio', SITE.bio);
+  setText('profileDesc', SITE.desc);
+
+  const tagBox = document.getElementById('profileTags');
+  if (tagBox && Array.isArray(SITE.tags) && SITE.tags.length) {
+    tagBox.innerHTML = SITE.tags.map((t) => `<span class="tag">${escapeHtml(t)}</span>`).join('');
+  }
+}
+
+/* ---------- 社交链接：导航栏 / 个人资料 / 联系方式（统一由 config.js 的 links 驱动） ---------- */
+function setupLinks() {
+  const { github: g, blog: b } = SITE.links || {};
+  const setHref = (id, url) => {
+    const el = document.getElementById(id);
+    if (el && url) el.href = url;
+  };
+  setHref('navGithub', g);
+  setHref('socialGithub', g);
+  setHref('socialBlog', b);
+  setHref('contactGithub', g);
+  setHref('contactBlog', b);
+  // 联系方式区展示的是裸域名文本，跟随配置更新
+  if (g) {
+    const cg = document.getElementById('contactGithub');
+    if (cg) cg.textContent = g.replace(/^https?:\/\//, '');
+  }
+  if (b) {
+    const cb = document.getElementById('contactBlog');
+    if (cb) cb.textContent = b.replace(/^https?:\/\//, '');
+  }
 }
 
 /* ---------- 状态栏：显示当前在学习/在做的东西 ---------- */
@@ -641,8 +733,13 @@ function setupProgress() {
   render();
 
   // 页面增强模块（不依赖后端）
+  setupSiteText(); // 尽早设置标题/描述/图标，避免闪烁
   renderWorks(); // 先以本地配置渲染，GitHub 实时数据到达后覆盖
   setupAvatar();
+  setupProfile();
+  setupLinks();
+  setupAbout();
+  setupEmail();
   setupStatus();
   setupFriendLink();
   setupLatestPost();

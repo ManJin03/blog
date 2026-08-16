@@ -17,7 +17,7 @@
   <nav class="navbar">
     <div class="nav-inner">
       <div class="nav-left">
-        <a class="brand" href="#top">ManJin</a>
+        <a class="brand" href="#top" id="brandName">ManJin</a>
         <span class="visitor-badge" title="本站访客数（Vercount 统计）">
           <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"
             stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -43,7 +43,7 @@
         </button>
       </div>
 
-      <a class="nav-link" href="https://github.com/ManJin03" target="_blank" rel="noopener noreferrer"
+      <a id="navGithub" class="nav-link" href="https://github.com/ManJin03" target="_blank" rel="noopener noreferrer"
         title="GitHub 主页">
         <svg viewBox="0 0 16 16" width="15" height="15" fill="currentColor" aria-hidden="true">
           <path
@@ -77,14 +77,14 @@
       <div class="profile-card" data-reveal>
         <div class="avatar" id="avatarBox" role="img" aria-label="ManJin 头像">MJ</div>
         <div class="profile-info">
-          <h1>ManJin <span class="profile-handle">@ManJin03</span></h1>
-          <p class="bio">学生 · 西安交通大学大三在读</p>
+          <h1><span id="profileName">ManJin</span> <span class="profile-handle" id="profileHandle">@ManJin03</span></h1>
+          <p class="bio" id="profileBio">学生 · 西安交通大学大三在读</p>
           <div class="status-bar" id="statusBar" title="当前状态">
             <span class="status-dot" aria-hidden="true"></span>
             <span class="status-text" id="statusText"></span>
           </div>
-          <p class="profile-desc">🎯 Focusing. 喜欢在代码与光影之间寻找秩序感，记录学习路上的点滴思考。热爱 C/C++ 与 Linux，对底层原理和系统构建充满好奇。</p>
-          <div class="tags">
+          <p class="profile-desc" id="profileDesc">🎯 Focusing. 喜欢在代码与光影之间寻找秩序感，记录学习路上的点滴思考。热爱 C/C++ 与 Linux，对底层原理和系统构建充满好奇。</p>
+          <div class="tags" id="profileTags">
             <span class="tag">C/C++</span>
             <span class="tag">Linux</span>
             <span class="tag">System</span>
@@ -98,7 +98,7 @@
           </ul>
 
           <div class="profile-links">
-            <a class="social-link" href="https://github.com/ManJin03" target="_blank" rel="noopener noreferrer"
+            <a id="socialGithub" class="social-link" href="https://github.com/ManJin03" target="_blank" rel="noopener noreferrer"
               aria-label="GitHub 主页" title="GitHub 主页">
               <svg viewBox="0 0 16 16" width="17" height="17" fill="currentColor" aria-hidden="true">
                 <path
@@ -106,7 +106,7 @@
               </svg>
               GitHub
             </a>
-            <a class="social-link" href="https://tech-manjin.pages.dev/" target="_blank" rel="noopener noreferrer"
+            <a id="socialBlog" class="social-link" href="https://tech-manjin.pages.dev/" target="_blank" rel="noopener noreferrer"
               aria-label="技术博客" title="技术博客">
               <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"
                 stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -237,8 +237,8 @@
           <h2>关于</h2>
         </div>
         <div class="about-card">
-          <p>我是 <strong>ManJin</strong>，就读于西安交通大学，目前大三。专注于系统编程与开源实践，习惯用文字记录技术探索与日常感悟。</p>
-          <ul class="about-list">
+          <p id="aboutText">我是 <strong>ManJin</strong>，就读于西安交通大学，目前大三。专注于系统编程与开源实践，习惯用文字记录技术探索与日常感悟。</p>
+          <ul class="about-list" id="aboutList">
             <li><span class="dot"></span> 关注底层原理：内存、并发、操作系统</li>
             <li><span class="dot"></span> 日常使用 C/C++ 与 Linux 进行开发与实验</li>
             <li><span class="dot"></span> 持续维护个人技术博客与开源项目</li>
@@ -264,7 +264,7 @@
             </span>
             <div class="contact-body">
               <span class="contact-label">GitHub</span>
-              <a class="contact-val" href="https://github.com/ManJin03" target="_blank"
+              <a id="contactGithub" class="contact-val" href="https://github.com/ManJin03" target="_blank"
                 rel="noopener noreferrer">github.com/ManJin03</a>
             </div>
           </li>
@@ -278,7 +278,7 @@
             </span>
             <div class="contact-body">
               <span class="contact-label">技术博客</span>
-              <a class="contact-val" href="https://tech-manjin.pages.dev/" target="_blank"
+              <a id="contactBlog" class="contact-val" href="https://tech-manjin.pages.dev/" target="_blank"
                 rel="noopener noreferrer">tech-manjin.pages.dev</a>
             </div>
           </li>
@@ -292,7 +292,7 @@
             </span>
             <div class="contact-body">
               <span class="contact-label">邮箱</span>
-              <a class="contact-val" href="mailto:manjin_03@163.com">manjin_03@163.com</a>
+              <a id="contactEmail" class="contact-val" href="mailto:manjin_03@163.com">manjin_03@163.com</a>
             </div>
           </li>
         </ul>
@@ -301,7 +301,7 @@
       <footer class="footer">
         <span>本站访问 <span id="vercount_value_site_pv">…</span> 次</span>
         <span class="footer-sep">·</span>
-        <span>© 2026 ManJin · Powered by Cloudflare Pages</span>
+        <span id="footerCopy">© 2026 ManJin · Powered by Cloudflare Pages</span>
       </footer>
     </main>
 

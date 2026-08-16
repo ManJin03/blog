@@ -13,6 +13,25 @@ export const SITE = {
     blog: 'https://tech-manjin.pages.dev/',
     friend: 'https://homepage-afl.pages.dev/',
   },
+  // SEO：浏览器标签页标题与站点描述
+  seo: {
+    title: 'ManJin 的个人主页',
+    description: 'ManJin 的个人主页 —— 西安交通大学大三在读，记录日常想法与动态。',
+  },
+  // 邮箱（联系方式区）
+  email: 'manjin_03@163.com',
+  // 关于我（text 支持少量 HTML，如 <strong>；items 为要点列表）
+  about: {
+    text: '我是 <strong>ManJin</strong>，就读于西安交通大学，目前大三。专注于系统编程与开源实践，习惯用文字记录技术探索与日常感悟。',
+    items: [
+      '关注底层原理：内存、并发、操作系统',
+      '日常使用 C/C++ 与 Linux 进行开发与实验',
+      '持续维护个人技术博客与开源项目',
+      '相信长期主义，把每一次"卡住"都当作成长机会',
+    ],
+  },
+  // 页脚版权文案
+  footer: '© 2026 ManJin · Powered by Cloudflare Pages',
   // 单条动态字数上限，需与 functions/_lib/posts.js 的 MAX_LEN 保持一致
   maxPostLen: 1000,
   // 友情链接（显示在个人资料底部）
