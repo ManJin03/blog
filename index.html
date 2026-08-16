@@ -92,9 +92,9 @@
           </div>
 
           <ul class="profile-stats">
-            <li><strong>2</strong><span>公开仓库</span></li>
-            <li><strong>28</strong><span>获星数</span></li>
-            <li><strong>3</strong><span>关注者</span></li>
+            <li><strong id="statRepos">2</strong><span>公开仓库</span></li>
+            <li><strong id="statStars">28</strong><span>获星数</span></li>
+            <li><strong id="statFollowers">3</strong><span>关注者</span></li>
           </ul>
 
           <div class="profile-links">
@@ -175,6 +175,49 @@
           <p class="module-sub">精选仓库与项目</p>
         </div>
         <div id="worksGrid" class="works-grid"></div>
+      </section>
+
+      <!-- GitHub 贡献热力图（参考 GitHub 主页贡献图） -->
+      <section id="activity" class="module" aria-label="GitHub 贡献热力图" data-reveal>
+        <div class="module-head">
+          <h2>GitHub 贡献</h2>
+          <p class="module-sub live-badge"><span class="live-dot" aria-hidden="true"></span>LIVE // SYNCED FROM GITHUB</p>
+        </div>
+        <div class="github-card activity-card">
+          <div class="activity-top">
+            <p class="activity-count">
+              <strong id="actTotal">–</strong>
+              <span class="activity-unit">contributions in <span id="actYear">2026</span></span>
+            </p>
+            <div class="activity-years" id="actYears" role="tablist" aria-label="选择年份"></div>
+          </div>
+          <div class="activity-scroll">
+            <div class="activity-months" id="actMonths" aria-hidden="true"></div>
+            <div class="activity-grid" id="actGrid">
+              <!-- 由 main.js 渲染：热力图格子 -->
+            </div>
+          </div>
+          <div class="activity-foot">
+            <span>Less</span>
+            <span class="legend-cell lv0"></span>
+            <span class="legend-cell lv1"></span>
+            <span class="legend-cell lv2"></span>
+            <span class="legend-cell lv3"></span>
+            <span class="legend-cell lv4"></span>
+            <span>More</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- 最近提交（GitHub 活动） -->
+      <section id="commits" class="module" aria-label="最近提交" data-reveal>
+        <div class="module-head">
+          <h2>最近提交</h2>
+          <p class="module-sub">来自 GitHub 的公开活动</p>
+        </div>
+        <div id="commitsList" class="github-card">
+          <!-- 由 main.js 渲染：骨架屏 → 提交时间轴 / "暂无"空位 -->
+        </div>
       </section>
 
       <!-- 最新文章（技术博客首篇） -->
@@ -268,6 +311,8 @@
         <p class="side-nav-title">快速导航</p>
         <a class="side-link" href="#feed" data-target="feed"><span class="side-ic">📝</span><span>我的动态</span></a>
         <a class="side-link" href="#works" data-target="works"><span class="side-ic">📦</span><span>作品展示</span></a>
+        <a class="side-link" href="#activity" data-target="activity"><span class="side-ic">📈</span><span>年度贡献</span></a>
+        <a class="side-link" href="#commits" data-target="commits"><span class="side-ic">🕐</span><span>最近提交</span></a>
         <a class="side-link" href="#latest" data-target="latest"><span class="side-ic">📰</span><span>最新文章</span></a>
         <a class="side-link" href="#about" data-target="about"><span class="side-ic">👤</span><span>关于我</span></a>
         <a class="side-link" href="#contact" data-target="contact"><span class="side-ic">✉️</span><span>联系方式</span></a>

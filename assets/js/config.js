@@ -5,9 +5,9 @@ export const SITE = {
   avatar: 'https://github.com/ManJin03.png',
   fallbackAvatar: 'assets/head.jpg',
   bio: '学生 · 西安交通大学大三在读',
-  status: '正在学习 Linux 内核与系统编程，折腾 Cloudflare Pages 部署',
-  desc: '🎯 Focusing. 喜欢在代码与光影之间寻找秩序感，记录学习路上的点滴思考。',
-  tags: ['C/C++', 'Linux', 'System', 'Open Source'],
+  status: '正在学习 C++ 与操作系统，折腾 Cloudflare Pages 部署',
+  desc: '🎯 Focusing. 正在胡乱折腾代码，记录学习路上的点滴思考。',
+  tags: ['C/C++', 'Linux', 'x86-64', 'git'],
   links: {
     github: 'https://github.com/ManJin03',
     blog: 'https://tech-manjin.pages.dev/',

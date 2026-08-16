@@ -224,11 +224,16 @@ document.addEventListener('keydown', (e) => {
  * 以下为页面增强部分：作品展示、右侧导航高亮、滚动揭示、时钟、阅读进度
  * ===================================================================== */
 
-/* ---------- 作品展示渲染 ---------- */
-function renderWorks() {
+/* ---------- 作品展示渲染（传入实时 GitHub 仓库数据；缺省回退本地配置） ---------- */
+function renderWorks(repos) {
   const grid = document.getElementById('worksGrid');
-  if (!grid || !SITE.works) return;
-  grid.innerHTML = SITE.works.map((w) => `
+  const list = Array.isArray(repos) ? repos : SITE.works;
+  if (!grid || !list) return;
+  if (!list.length) {
+    grid.innerHTML = '<p class="empty">暂无仓库</p>';
+    return;
+  }
+  grid.innerHTML = list.map((w) => `
     <a class="works-card" href="${w.url}" target="_blank" rel="noopener noreferrer">
       <div class="works-card-head">
         <span class="works-ic">
@@ -323,6 +328,233 @@ async function setupLatestPost() {
   `;
 }
 
+/* ---------- GitHub 资料：统计实时更新 + 作品展示 + 最近提交 ---------- */
+
+// GitHub 风格数字缩写：1024 → 1k，15200 → 15.2k
+function fmtCount(n) {
+  const num = Number(n) || 0;
+  if (num >= 1000) return `${(num / 1000).toFixed(1).replace(/\.0$/, '')}k`;
+  return String(num);
+}
+
+// 相对时间：刚刚 / x 分钟前 / x 小时前 / x 天前 / x 周前 / x 个月前 / x 年前
+function timeAgo(dateStr) {
+  const t = new Date(dateStr).getTime();
+  if (Number.isNaN(t)) return '';
+  const diff = Date.now() - t;
+  const MIN = 60 * 1000, HOUR = 60 * MIN, DAY = 24 * HOUR, WEEK = 7 * DAY, MONTH = 30 * DAY, YEAR = 365 * DAY;
+  if (diff < MIN) return '刚刚';
+  if (diff < HOUR) return `${Math.floor(diff / MIN)} 分钟前`;
+  if (diff < DAY) return `${Math.floor(diff / HOUR)} 小时前`;
+  if (diff < WEEK) return `${Math.floor(diff / DAY)} 天前`;
+  if (diff < MONTH) return `${Math.floor(diff / WEEK)} 周前`;
+  if (diff < YEAR) return `${Math.floor(diff / MONTH)} 个月前`;
+  return `${Math.floor(diff / YEAR)} 年前`;
+}
+
+// 个人资料统计（左栏）：公开仓库 / 获星数 / 关注者
+function renderStats(profile) {
+  if (!profile) return;
+  const set = (id, v) => {
+    const el = document.getElementById(id);
+    if (el && v != null) el.textContent = fmtCount(v);
+  };
+  set('statRepos', profile.publicRepos);
+  set('statStars', profile.stars);
+  set('statFollowers', profile.followers);
+}
+
+// 最近提交时间轴（仿 GitHub 活动流）
+function renderCommits(commits) {
+  const box = document.getElementById('commitsList');
+  if (!box) return;
+  if (!Array.isArray(commits) || !commits.length) {
+    box.classList.add('is-empty');
+    box.innerHTML = '<p class="github-empty">暂无最近提交</p>';
+    return;
+  }
+  box.classList.remove('is-empty');
+  const items = commits.slice(0, 10).map((c) => `
+    <li class="commit-item">
+      <div class="commit-body">
+        <a class="commit-msg" href="${escapeHtml(c.url)}" target="_blank" rel="noopener noreferrer" title="${escapeHtml(c.message)}">${escapeHtml(c.message)}</a>
+        <div class="commit-meta">
+          <a class="commit-repo" href="${escapeHtml(c.repoUrl || 'https://github.com')}" target="_blank" rel="noopener noreferrer">${escapeHtml(c.repo || '')}</a>
+          <span class="commit-sha">${escapeHtml(c.sha || '')}</span>
+          <span class="commit-date" title="${escapeHtml(c.date || '')}">${escapeHtml(timeAgo(c.date))}</span>
+        </div>
+      </div>
+    </li>
+  `).join('');
+  const collapsed = commits.length > 3;
+  box.innerHTML = `
+    <ul class="github-timeline${collapsed ? ' is-collapsed' : ''}">
+      ${items}
+    </ul>
+    ${collapsed ? `
+      <button type="button" class="commits-toggle" aria-expanded="false">
+        <span class="commits-toggle-label">查看全部 ${commits.length} 条提交</span>
+        <span class="commits-toggle-icon" aria-hidden="true"></span>
+      </button>
+    ` : ''}
+  `;
+  const btn = box.querySelector('.commits-toggle');
+  if (btn) {
+    btn.addEventListener('click', () => {
+      const ul = box.querySelector('.github-timeline');
+      // toggle() 返回操作后该 class 是否存在：移除了（已展开）返回 false
+      const expanded = !ul.classList.toggle('is-collapsed');
+      btn.setAttribute('aria-expanded', String(expanded));
+      btn.querySelector('.commits-toggle-label').textContent = expanded
+        ? '收起'
+        : `查看全部 ${commits.length} 条提交`;
+      btn.querySelector('.commits-toggle-icon').classList.toggle('is-open', expanded);
+    });
+  }
+}
+
+// 聚合入口：一次请求拿到统计 + 仓库 + 提交；失败时全部回退本地兜底
+async function setupGithub() {
+  const box = document.getElementById('commitsList');
+  if (box) {
+    // 先渲染骨架屏，避免模块空跳
+    box.innerHTML = `
+      <ul class="github-timeline" aria-hidden="true">
+        ${Array.from({ length: 4 }).map(() => `
+          <li class="commit-item">
+            <div class="commit-body">
+              <div class="skeleton" style="width:72%;height:16px"></div>
+              <div class="skeleton" style="width:46%;height:12px;margin-top:9px"></div>
+            </div>
+          </li>
+        `).join('')}
+      </ul>
+    `;
+  }
+  try {
+    const data = await api.getGithub();
+    renderStats(data?.profile);
+    renderWorks(data?.repos);
+    renderCommits(data?.commits);
+  } catch (err) {
+    console.warn('[github] 实时数据获取失败，使用本地兜底：', err);
+    renderCommits(null);
+  }
+}
+
+/* ---------- GitHub 贡献热力图（仿 GitHub 主页贡献图） ---------- */
+const CONTRIB_MONTHS = ['', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const actState = { year: new Date().getFullYear(), years: [], loading: false };
+
+// 生成热力图标记：days 为"列优先"（每周一列、周日开头），用 CSS grid 列填充即可对齐
+function buildActivityMarkup(data) {
+  const days = data.days;
+  const cols = Math.ceil(days.length / 7);
+
+  // 月份标签：记录每月首个格子所在列。
+  // 跨年首列可能同时含去年 12 月与今年 1 月，12 月标签不占位（直接跳过），
+  // 让 1 月正确显示在首列，避免同列两个 span 互相挤到下一行。
+  const monthCols = [];
+  days.forEach((d, i) => {
+    const m = Number(d.date.slice(5, 7));
+    const col = Math.floor(i / 7);
+    if (col === 0 && m === 12) return;
+    if (!monthCols.length || monthCols[monthCols.length - 1].m !== m) {
+      monthCols.push({ m, col });
+    }
+  });
+  const monthsHtml = monthCols.map(({ m, col }) =>
+    `<span class="activity-month" style="grid-column:${col + 1}">${CONTRIB_MONTHS[m]}</span>`
+  ).join('');
+
+  const cellsHtml = days.map((d) => {
+    const count = d.count || 0;
+    const tip = count
+      ? `${count} ${count === 1 ? 'contribution' : 'contributions'} on ${d.date}`
+      : `No contributions on ${d.date}`;
+    return `<span class="gh-cell lv${d.level}" data-date="${d.date}" title="${tip}"></span>`;
+  }).join('');
+
+  return { cols, monthsHtml, cellsHtml };
+}
+
+function renderActivity(data) {
+  const totalEl = document.getElementById('actTotal');
+  const yearEl = document.getElementById('actYear');
+  const monthsEl = document.getElementById('actMonths');
+  const gridEl = document.getElementById('actGrid');
+  if (!gridEl || !data || !Array.isArray(data.days)) return;
+
+  actState.year = data.year;
+  actState.years = (Array.isArray(data.years) && data.years.length) ? data.years : [data.year];
+  if (totalEl) totalEl.textContent = data.total ?? 0;
+  if (yearEl) yearEl.textContent = data.year;
+  renderYearButtons();
+
+  const { cols, monthsHtml, cellsHtml } = buildActivityMarkup(data);
+  monthsEl.style.gridTemplateColumns = `repeat(${cols}, var(--gh-cell))`;
+  gridEl.style.gridTemplateColumns = `repeat(${cols}, var(--gh-cell))`;
+
+  if (!data.days.length) {
+    gridEl.innerHTML = '<p class="activity-error">暂无贡献数据</p>';
+    gridEl.style.gridTemplateColumns = '1fr';
+    return;
+  }
+  monthsEl.innerHTML = monthsHtml;
+  gridEl.innerHTML = cellsHtml;
+}
+
+function renderYearButtons() {
+  const wrap = document.getElementById('actYears');
+  if (!wrap) return;
+  wrap.innerHTML = actState.years.map((y) => `
+    <button type="button" class="year-btn${y === actState.year ? ' active' : ''}" data-year="${y}" role="tab"
+      aria-selected="${y === actState.year}" ${actState.loading ? 'disabled' : ''}>${y}</button>
+  `).join('');
+  wrap.querySelectorAll('.year-btn').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const y = Number(btn.dataset.year);
+      if (actState.loading || y === actState.year) return;
+      loadActivity(y);
+    });
+  });
+}
+
+async function loadActivity(year) {
+  const gridEl = document.getElementById('actGrid');
+  const monthsEl = document.getElementById('actMonths');
+  const totalEl = document.getElementById('actTotal');
+  actState.loading = true;
+  if (totalEl) totalEl.textContent = '…';
+  if (gridEl && monthsEl) {
+    // 骨架：7 行 × 2 列灰色格子
+    monthsEl.innerHTML = '';
+    gridEl.style.gridTemplateColumns = 'repeat(2, var(--gh-cell))';
+    gridEl.innerHTML = Array.from({ length: 14 })
+      .map(() => '<span class="gh-cell skeleton-cell"></span>').join('');
+  }
+  renderYearButtons();
+  try {
+    renderActivity(await api.getGithubContributions(year));
+  } catch (err) {
+    console.warn('[activity] 贡献数据加载失败：', err);
+    if (totalEl) totalEl.textContent = '–';
+    if (gridEl && monthsEl) {
+      monthsEl.innerHTML = '';
+      gridEl.innerHTML = '<p class="activity-error">贡献数据加载失败</p>';
+      gridEl.style.gridTemplateColumns = '1fr';
+    }
+  } finally {
+    actState.loading = false;
+    renderYearButtons();
+  }
+}
+
+function setupActivity() {
+  if (!document.getElementById('actGrid')) return;
+  loadActivity(new Date().getFullYear());
+}
+
 /* ---------- 右侧导航高亮（滚动联动） ---------- */
 function setupSideNav() {
   const links = Array.from(document.querySelectorAll('.side-link'));
@@ -409,11 +641,13 @@ function setupProgress() {
   render();
 
   // 页面增强模块（不依赖后端）
-  renderWorks();
+  renderWorks(); // 先以本地配置渲染，GitHub 实时数据到达后覆盖
   setupAvatar();
   setupStatus();
   setupFriendLink();
   setupLatestPost();
+  setupGithub();
+  setupActivity();
   setupSideNav();
   setupReveal();
   setupClock();
