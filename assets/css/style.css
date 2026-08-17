@@ -826,7 +826,8 @@ mark { background: var(--mark); color: inherit; border-radius: 2px; padding: 0 1
 /* ---------- 作品展示 ---------- */
 .works-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  /* 卡片最小宽度较小，auto-fill 让窗口越宽容纳越多列，从而展示越多项目 */
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
   gap: 14px;
 }
 .works-card {

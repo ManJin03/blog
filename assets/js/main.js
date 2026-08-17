@@ -52,10 +52,11 @@ const state = {
   commentDraft: {}, // 各帖评论草稿 { [postId]: text }
   commentEditingId: null, // 正在编辑的评论 id（格式 `${postId}:${commentId}`）
   commentsVisible: {}, // 各帖评论是否显示 { [postId]: true }
-  deviceId: '', // 匿名设备标识（用于点赞去重）
+  deviceId: '', // 匿名设备标识（陌生人点赞去重）
+  liker: '', // 当前点赞标识（登录为 user:xxx，未登录为 device:xxx）
 };
 
-// 匿名设备标识：仅用于"每设备点赞一次"的去重，不关联任何身份
+// 匿名设备标识：陌生人点赞时用设备去重，不关联任何身份
 function getDeviceId() {
   const KEY = 'mj_device';
   try {
@@ -71,8 +72,14 @@ function getDeviceId() {
 }
 const deviceId = getDeviceId();
 
+// 点赞标识：登录账号后点赞绑定到账号（user:username），未登录时记录设备（device:id）
+function getLiker() {
+  return state.authed && state.me ? `user:${state.me.username}` : `device:${deviceId}`;
+}
+
 function render() {
   state.deviceId = deviceId;
+  state.liker = getLiker();
   // 只有管理员可以发帖
   els.composer.classList.toggle('hidden', !state.isAdmin);
   els.authBtn.classList.toggle('hidden', state.authed);
@@ -297,15 +304,16 @@ initFeed({
   async onToggleLike(postId) {
     const post = state.posts.find((p) => p.id === postId);
     if (!post) return;
+    const liker = state.liker; // 用于本地状态同步（后端登录态会绑定到账号，未登录用设备）
     try {
       const { likes, liked } = await api.toggleLike(postId, deviceId);
       post.likes = likes;
       // 更新本地 likedDevices，保持与后端一致（后端返回 likes 数，liked 表示当前状态）
       if (Array.isArray(post.likedDevices)) {
         if (liked) {
-          if (!post.likedDevices.includes(deviceId)) post.likedDevices.push(deviceId);
+          if (!post.likedDevices.includes(liker)) post.likedDevices.push(liker);
         } else {
-          post.likedDevices = post.likedDevices.filter((d) => d !== deviceId);
+          post.likedDevices = post.likedDevices.filter((d) => d !== liker);
         }
       }
       render();

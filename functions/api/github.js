@@ -57,9 +57,10 @@ async function gh(env, path) {
 
 async function fetchAll(env) {
   // 用户资料与公开仓库并行拉取
+  // sort=pushed：以最近提交（push）时间为参考排序，作为作品展示顺序
   const [user, repos] = await Promise.all([
     gh(env, `/users/${USERNAME}`),
-    gh(env, `/users/${USERNAME}/repos?sort=updated&per_page=100&type=owner`),
+    gh(env, `/users/${USERNAME}/repos?sort=pushed&per_page=100&type=owner`),
   ]);
 
   // 仅统计本人创建的仓库（排除 fork），累加获星数
@@ -75,8 +76,9 @@ async function fetchAll(env) {
     bio: user.bio || '',
   };
 
-  // 作品展示：按最近更新时间取前 6 个
-  const repoList = own.slice(0, 6).map((r) => ({
+  // 作品展示：返回全部本人仓库（前端按窗口宽度自适应展示数量），
+  // 按最近提交（pushed_at）倒序排序，并附带 pushedAt 供前端参考
+  const repoList = own.map((r) => ({
     name: r.name,
     desc: r.description || '',
     lang: r.language || '',
@@ -84,9 +86,10 @@ async function fetchAll(env) {
     stars: r.stargazers_count || 0,
     forks: r.forks_count || 0,
     url: r.html_url,
+    pushedAt: r.pushed_at || '',
   }));
 
-  // 最近提交：对最近更新的仓库（最多 3 个）并行拉取提交，合并按时间倒序取前 10。
+  // 最近提交：对最近提交的仓库（最多 3 个）并行拉取提交，合并按时间倒序取前 10。
   // 单个仓库拉取失败时降级为空数组，不影响其余数据。
   const commits = [];
   try {

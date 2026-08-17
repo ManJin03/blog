@@ -71,19 +71,21 @@ export async function addPost(env, post) {
   return post;
 }
 
-// 点赞/取消点赞：deviceId 为匿名设备标识（仅用于"每设备一次"去重，不关联任何身份）
-// 已点过 → 取消（likes-1，移除 deviceId）；未点过 → 点赞（likes+1，加入 deviceId）
+// 点赞/取消点赞：liker 为点赞者标识
+//   - 登录账号：user:${username}（点赞绑定到账号）
+//   - 陌生人：device:${匿名设备id}（仅记录设备，不关联身份）
+// 已点过 → 取消（likes-1，移除 liker）；未点过 → 点赞（likes+1，加入 liker）
 // 返回 { likes, liked } 或 { error, status }
-export async function toggleLike(env, id, deviceId) {
+export async function toggleLike(env, id, liker) {
   const post = await readPost(env, id);
   if (!post) return { error: '动态不存在', status: 404 };
   const likedDevices = Array.isArray(post.likedDevices) ? post.likedDevices : [];
   let likes = typeof post.likes === 'number' ? post.likes : 0;
-  const idx = likedDevices.indexOf(deviceId);
+  const idx = likedDevices.indexOf(liker);
   let liked;
   if (idx === -1) {
     // 点赞
-    likedDevices.push(deviceId);
+    likedDevices.push(liker);
     likes += 1;
     liked = true;
   } else {

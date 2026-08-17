@@ -271,11 +271,11 @@ function postHtml(p, state) {
 
 /* ---------- 评论区 ---------- */
 
-// 当前设备是否已点赞某帖（deviceId 由 state 传入）
+// 当前点赞者是否已点赞某帖（liker 由 state 传入：登录为 user:xxx，未登录为 device:xxx）
 function isLikedInFeed(post, state) {
   const d = post && post.likedDevices;
-  const did = state && state.deviceId;
-  return Array.isArray(d) && !!did && d.includes(did);
+  const liker = state && state.liker;
+  return Array.isArray(d) && !!liker && d.includes(liker);
 }
 
 // 评论头像 URL：github 主页 + '.png'，兜底用账号名首字母
