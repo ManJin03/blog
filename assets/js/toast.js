@@ -22,9 +22,9 @@ export function toast(message, type = 'info', duration = 2600) {
   };
 
   el.addEventListener('click', close);
-  stack.appendChild(el);
-  // 限制同时可见数量，避免堆叠遮挡阅读
-  while (stack.children.length > 3) stack.firstChild?.remove();
+  stack.prepend(el); // 顶部堆叠：新消息出现在最上方
+  // 限制同时可见数量，避免堆叠遮挡阅读（移除最底部、最旧的）
+  while (stack.children.length > 3) stack.lastChild?.remove();
   setTimeout(close, duration);
   return close;
 }

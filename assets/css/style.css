@@ -1707,7 +1707,7 @@ mark { background: var(--mark); color: inherit; border-radius: 2px; padding: 0 1
 .toast-stack {
   position: fixed;
   left: 50%;
-  bottom: 28px;
+  top: 28px;
   transform: translateX(-50%);
   z-index: 55; /* 低于 .focus-cursor(60)，圆点始终可见 */
   display: flex;
@@ -1749,19 +1749,19 @@ mark { background: var(--mark); color: inherit; border-radius: 2px; padding: 0 1
 .toast-error::before { background: var(--danger); }
 .toast-success::before { background: #2ecc71; }
 
-.toast.is-leaving { opacity: 0; transform: translateY(10px); }
+.toast.is-leaving { opacity: 0; transform: translateY(-10px); }
 
 @keyframes toastIn {
-  from { opacity: 0; transform: translateY(10px) scale(0.98); }
+  from { opacity: 0; transform: translateY(-10px) scale(0.98); }
   to { opacity: 1; transform: translateY(0) scale(1); }
 }
 
-/* 轻量确认框：底部居中，超时自动关闭（视为取消） */
+/* 轻量确认框：顶部居中，超时自动关闭（视为取消） */
 .toast-confirm {
   position: fixed;
   left: 50%;
-  bottom: 28px;
-  transform: translateX(-50%) translateY(12px);
+  top: 28px;
+  transform: translateX(-50%) translateY(-12px);
   z-index: 55;
   width: max-content;
   max-width: min(92vw, 380px);
@@ -1776,7 +1776,7 @@ mark { background: var(--mark); color: inherit; border-radius: 2px; padding: 0 1
 }
 
 .toast-confirm.is-in { opacity: 1; transform: translateX(-50%) translateY(0); }
-.toast-confirm.is-leaving { opacity: 0; transform: translateX(-50%) translateY(12px); }
+.toast-confirm.is-leaving { opacity: 0; transform: translateX(-50%) translateY(-12px); }
 
 .toast-confirm .confirm-msg { margin: 0 0 12px; font-size: 14px; line-height: 1.6; color: var(--text); }
 
