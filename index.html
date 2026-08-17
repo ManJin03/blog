@@ -381,12 +381,8 @@
         <input id="newUsername" type="text" placeholder="账号名（字母/数字/_-）" autocomplete="off" />
         <input id="newPassword" type="password" placeholder="密码（至少 6 位）" autocomplete="new-password" />
         <input id="newGithub" type="text" placeholder="GitHub 主页链接（可选）" autocomplete="off" />
-        <div class="user-form-row">
-          <label class="role-label"><input type="radio" name="newRole" value="user" checked />普通账号</label>
-          <label class="role-label"><input type="radio" name="newRole" value="admin" />管理员</label>
-        </div>
         <p id="userFormError" class="login-error hidden"></p>
-        <button id="createUserBtn" class="publish-btn full" type="submit">创建账号</button>
+        <button id="createUserBtn" class="publish-btn full" type="submit">创建普通账号</button>
       </form>
       <ul id="usersList" class="users-list"></ul>
     </div>

@@ -451,7 +451,6 @@ function renderUsers() {
         <div class="user-item-info">
           <div class="user-item-name">
             ${escapeHtml(u.username)}
-            ${u.role === 'admin' ? '<span class="user-badge admin">管理员</span>' : '<span class="user-badge">普通</span>'}
             ${u.github ? `<a class="user-item-github" href="${escapeHtml(u.github)}" target="_blank" rel="noopener noreferrer">${escapeHtml(u.github.replace(/^https?:\/\//, ''))}</a>` : ''}
           </div>
         </div>
@@ -469,12 +468,11 @@ async function createUser(e) {
   const username = els.newUsername.value.trim();
   const password = els.newPassword.value;
   const github = els.newGithub.value.trim();
-  const role = els.userForm.querySelector('input[name="newRole"]:checked')?.value || 'user';
   if (!username || !password) return;
   els.createUserBtn.disabled = true;
   els.userFormError.classList.add('hidden');
   try {
-    await api.createUser(username, password, github, role);
+    await api.createUser(username, password, github);
     els.newUsername.value = '';
     els.newPassword.value = '';
     els.newGithub.value = '';
@@ -488,7 +486,7 @@ async function createUser(e) {
   }
 }
 
-// 编辑账号：弹出一个内联编辑区（github / role / 重置密码）
+// 编辑账号：弹出一个内联编辑区（github / 重置密码）
 async function editUser(username) {
   const u = state.users.find((x) => x.username === username);
   if (!u) return;
@@ -497,10 +495,6 @@ async function editUser(username) {
   card.innerHTML = `
     <p class="user-edit-title">编辑账号 <strong>${escapeHtml(username)}</strong></p>
     <input class="user-edit-github" type="text" placeholder="GitHub 主页链接（可选）" value="${escapeHtml(u.github || '')}" />
-    <div class="user-form-row">
-      <label class="role-label"><input type="radio" name="editRole" value="user" ${u.role === 'user' ? 'checked' : ''} />普通账号</label>
-      <label class="role-label"><input type="radio" name="editRole" value="admin" ${u.role === 'admin' ? 'checked' : ''} />管理员</label>
-    </div>
     <input class="user-edit-password" type="password" placeholder="重置密码（留空则不改）" autocomplete="new-password" />
     <p class="login-error hidden"></p>
     <div class="user-edit-actions">
@@ -517,9 +511,8 @@ async function editUser(username) {
   card.querySelector('[data-cancel-edit]').addEventListener('click', () => renderUsers());
   card.querySelector('[data-save-edit]').addEventListener('click', async () => {
     const github = card.querySelector('.user-edit-github').value.trim();
-    const role = card.querySelector('input[name="editRole"]:checked')?.value || 'user';
     const password = card.querySelector('.user-edit-password').value;
-    const patch = { github, role };
+    const patch = { github };
     if (password) patch.password = password;
     try {
       await api.updateUser(username, patch);

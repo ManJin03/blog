@@ -39,9 +39,9 @@ export const deletePost = (id) => request(`/api/posts/${encodeURIComponent(id)}`
 
 /* ---------- 账号管理（仅管理员） ---------- */
 export const getUsers = () => request('/api/users');
-export const createUser = (username, password, github, role) => request('/api/users', {
+export const createUser = (username, password, github) => request('/api/users', {
   method: 'POST',
-  body: JSON.stringify({ username, password, github, role }),
+  body: JSON.stringify({ username, password, github }),
 });
 export const updateUser = (username, patch) => request(`/api/users/${encodeURIComponent(username)}`, {
   method: 'PATCH',

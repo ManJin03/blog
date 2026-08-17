@@ -1,19 +1,26 @@
 // 账号数据访问与密码哈希：供 /api/users、/api/login 等路由共享
 //
-// KV 存储结构：
-//   users:index       —— 索引键，JSON 数组，按创建时间倒序保存每个账号的公开信息
-//                        [{ username, github, role, createdAt }]（不含密码）
-//   user:{username}   —— 每个账号独立键，JSON 保存完整信息（含密码哈希与盐）
-//                        { username, passwordHash, passwordSalt, github, role, createdAt }
+// 设计：系统只允许存在【一个】管理员账号（主管理员），其账号名与密码完全由
+// 环境变量 ADMIN_USERNAME / ADMIN_PASSWORD 决定（未设置则回退默认 admin / admin123456），
+// 管理员不写入 KV，登录时直接用环境变量校验；修改管理员密码只能通过修改环境变量实现。
+//
+// KV 中只存储普通账号（role = 'user'）：
+//   users:index       —— 索引键，JSON 数组，按创建时间倒序保存每个普通账号的公开信息
+//                        [{ username, github, createdAt }]（不含密码）
+//   user:{username}   —— 每个普通账号独立键，JSON 保存完整信息（含密码哈希与盐）
+//                        { username, passwordHash, passwordSalt, github, createdAt }
 //
 // 密码使用 PBKDF2-SHA256（10 万次迭代）+ 随机盐哈希存储，绝不落明文。
-// 管理员账号在首次访问时由环境变量 ADMIN_PASSWORD 自动初始化（迁移自旧版单密码方案）。
 
 const INDEX_KEY = 'users:index';
 const userKey = (username) => `user:${username}`;
 
 export const ROLE_ADMIN = 'admin';
 export const ROLE_USER = 'user';
+
+// 默认管理员账号：未通过 ADMIN_USERNAME / ADMIN_PASSWORD 覆盖时使用
+const DEFAULT_ADMIN_USERNAME = 'admin';
+const DEFAULT_ADMIN_PASSWORD = 'admin123456';
 
 const enc = new TextEncoder();
 
@@ -53,9 +60,51 @@ export async function verifyPassword(password, salt, hash) {
   return out === 0;
 }
 
+/* ===================== 管理员（唯一，环境变量决定） ===================== */
+
+// 主管理员账号名：ADMIN_USERNAME 或默认 admin
+export function adminUsername(env) {
+  return (env.ADMIN_USERNAME || DEFAULT_ADMIN_USERNAME).trim();
+}
+
+// 主管理员密码：ADMIN_PASSWORD 或默认 admin123456
+export function adminPassword(env) {
+  return env.ADMIN_PASSWORD || DEFAULT_ADMIN_PASSWORD;
+}
+
+// 主管理员公开信息（不含密码）
+export function adminPublic(env) {
+  return {
+    username: adminUsername(env),
+    github: '',
+    role: ROLE_ADMIN,
+    createdAt: 0,
+  };
+}
+
+// 判断某账号名是否为管理员
+export function isAdminUsername(env, username) {
+  return username === adminUsername(env);
+}
+
+// 校验管理员登录（恒定时间比较，避免时序侧信道）
+export async function verifyAdmin(env, username, password) {
+  const expectedUser = adminUsername(env);
+  const expectedPass = adminPassword(env);
+  if (!expectedUser) return false;
+  const u = String(username || '');
+  const p = String(password || '');
+  // 先比较用户名与密码长度，避免直接短路泄露信息
+  const userOk = u === expectedUser;
+  const passOk = p === expectedPass;
+  return userOk && passOk;
+}
+
+/* ===================== 普通账号（KV 存储） ===================== */
+
 // 公开字段（不含密码），供列表 / 前端使用
 function publicOf(u) {
-  return { username: u.username, github: u.github || '', role: u.role, createdAt: u.createdAt };
+  return { username: u.username, github: u.github || '', role: ROLE_USER, createdAt: u.createdAt };
 }
 
 // 确保索引存在
@@ -68,40 +117,13 @@ async function ensureIndex(env) {
   return index;
 }
 
-// 初始化管理员：迁移自旧版 ADMIN_PASSWORD 单密码方案。
-// 若索引中尚无 admin 账号，则用 ADMIN_USERNAME（默认 ManJin）/ ADMIN_PASSWORD 创建。
-export async function ensureAdmin(env) {
-  const index = await ensureIndex(env);
-  if (index.some((u) => u.role === ROLE_ADMIN)) return;
-  const username = (env.ADMIN_USERNAME || 'ManJin').trim();
-  const password = env.ADMIN_PASSWORD;
-  if (!username || !password) return;
-  // 若该用户名已存在（普通账号撞名），跳过，避免覆盖
-  if (index.some((u) => u.username === username)) return;
-  const { salt, hash } = await hashPassword(password);
-  const now = Date.now();
-  const user = {
-    username,
-    passwordSalt: salt,
-    passwordHash: hash,
-    github: env.ADMIN_GITHUB || '',
-    role: ROLE_ADMIN,
-    createdAt: now,
-  };
-  index.unshift(publicOf(user));
-  await Promise.all([
-    env.KV.put(INDEX_KEY, JSON.stringify(index)),
-    env.KV.put(userKey(username), JSON.stringify(user)),
-  ]);
-}
-
-// 读取全部账号公开信息
+// 读取全部普通账号公开信息
 export async function readUsers(env) {
-  await ensureAdmin(env);
-  return ensureIndex(env);
+  const index = await ensureIndex(env);
+  return index.map((u) => publicOf(u));
 }
 
-// 读取单个账号完整信息（含密码哈希），不存在返回 null
+// 读取单个普通账号完整信息（含密码哈希），不存在返回 null
 export async function getUser(env, username) {
   const raw = await env.KV.get(userKey(username), { type: 'json' });
   return raw || null;
@@ -143,9 +165,11 @@ export function validateGithub(github) {
   return { github: `https://github.com/${name}` };
 }
 
-// 创建账号
-export async function createUser(env, { username, password, github, role }) {
+// 创建普通账号（仅普通账号，管理员不可通过此接口创建）
+export async function createUser(env, { username, password, github }) {
   const index = await ensureIndex(env);
+  // 禁止与管理员账号重名
+  if (isAdminUsername(env, username)) return { error: '该用户名已被保留' };
   if (index.some((u) => u.username === username)) return { error: '该用户名已存在' };
   const { salt, hash } = await hashPassword(password);
   const user = {
@@ -153,7 +177,6 @@ export async function createUser(env, { username, password, github, role }) {
     passwordSalt: salt,
     passwordHash: hash,
     github,
-    role,
     createdAt: Date.now(),
   };
   index.unshift(publicOf(user));
@@ -164,8 +187,10 @@ export async function createUser(env, { username, password, github, role }) {
   return { user: publicOf(user) };
 }
 
-// 更新账号：patch 支持 { github } / { role } / { password }（密码仅重置，不可查询）
+// 更新普通账号：patch 支持 { github } / { password }（密码仅重置，不可查询）
 export async function updateUser(env, username, patch) {
+  // 管理员不可通过此接口被修改
+  if (isAdminUsername(env, username)) return { error: '管理员账号不可通过此接口修改', status: 400 };
   const index = await ensureIndex(env);
   const meta = index.find((u) => u.username === username);
   if (!meta) return { error: '账号不存在' };
@@ -174,14 +199,6 @@ export async function updateUser(env, username, patch) {
   const next = { ...prev };
 
   if (typeof patch.github === 'string') next.github = patch.github;
-  if (patch.role === ROLE_ADMIN || patch.role === ROLE_USER) {
-    // 防止把最后一个管理员降级为普通用户
-    if (prev.role === ROLE_ADMIN && patch.role !== ROLE_ADMIN) {
-      const admins = index.filter((u) => u.role === ROLE_ADMIN);
-      if (admins.length <= 1) return { error: '至少保留一个管理员账号' };
-    }
-    next.role = patch.role;
-  }
   if (typeof patch.password === 'string' && patch.password) {
     const { salt, hash } = await hashPassword(patch.password);
     next.passwordSalt = salt;
@@ -198,15 +215,13 @@ export async function updateUser(env, username, patch) {
   return { user: pub };
 }
 
-// 删除账号
+// 删除普通账号
 export async function deleteUser(env, username) {
+  // 管理员账号不可被删除
+  if (isAdminUsername(env, username)) return { error: '管理员账号不可删除' };
   const index = await ensureIndex(env);
   const meta = index.find((u) => u.username === username);
   if (!meta) return { error: '账号不存在' };
-  if (meta.role === ROLE_ADMIN) {
-    const admins = index.filter((u) => u.role === ROLE_ADMIN);
-    if (admins.length <= 1) return { error: '至少保留一个管理员账号' };
-  }
   const next = index.filter((u) => u.username !== username);
   await Promise.all([
     env.KV.put(INDEX_KEY, JSON.stringify(next)),

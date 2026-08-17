@@ -1,14 +1,12 @@
-// PATCH  /api/users/:username —— 修改账号（github / role / password 重置），需管理员
-// DELETE /api/users/:username —— 删除账号，需管理员
-// 密码不可查询，仅支持重置。
+// PATCH  /api/users/:username —— 修改普通账号（github / password 重置），需管理员
+// DELETE /api/users/:username —— 删除普通账号，需管理员
+// 管理员账号不可通过此接口修改或删除；管理员密码只能通过环境变量 ADMIN_PASSWORD 修改。
 import { json } from '../../_lib/http.js';
 import {
   updateUser,
   deleteUser,
   validatePassword,
   validateGithub,
-  ROLE_ADMIN,
-  ROLE_USER,
 } from '../../_lib/users.js';
 
 export async function onRequestPatch({ request, env, data, params }) {
@@ -28,10 +26,6 @@ export async function onRequestPatch({ request, env, data, params }) {
     const gh = validateGithub(body.github);
     if (gh.error) return json({ error: gh.error }, 400);
     patch.github = gh.github;
-  }
-
-  if (body.role === ROLE_ADMIN || body.role === ROLE_USER) {
-    patch.role = body.role;
   }
 
   if (typeof body.password === 'string' && body.password) {

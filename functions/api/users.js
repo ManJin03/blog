@@ -1,6 +1,6 @@
-// GET  /api/users —— 查询账号列表（需管理员）
-// POST /api/users —— 创建账号（需管理员）
-// 普通账号不允许自行注册，只能由管理员在后台创建。
+// GET  /api/users —— 查询普通账号列表（需管理员）
+// POST /api/users —— 创建普通账号（需管理员）
+// 系统只允许存在一个管理员（由环境变量决定），管理员只能增删查改普通账号。
 import { json } from '../_lib/http.js';
 import {
   readUsers,
@@ -8,8 +8,6 @@ import {
   validateUsername,
   validatePassword,
   validateGithub,
-  ROLE_ADMIN,
-  ROLE_USER,
 } from '../_lib/users.js';
 
 function kvMissing() {
@@ -40,13 +38,10 @@ export async function onRequestPost({ request, env, data }) {
   const gh = validateGithub(body?.github);
   if (gh.error) return json({ error: gh.error }, 400);
 
-  const role = body?.role === ROLE_ADMIN ? ROLE_ADMIN : ROLE_USER;
-
   const result = await createUser(env, {
     username: uname.username,
     password: pwd.password,
     github: gh.github,
-    role,
   });
   if (result.error) return json({ error: result.error }, 409);
 

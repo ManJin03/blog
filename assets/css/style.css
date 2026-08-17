@@ -1601,17 +1601,6 @@ mark { background: var(--mark); color: inherit; border-radius: 2px; padding: 0 1
 }
 .user-form input:focus { border-color: var(--accent); }
 
-.user-form-row { display: flex; gap: 16px; align-items: center; }
-
-.role-label {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  font-size: 13px;
-  color: var(--muted);
-}
-.role-label input { width: auto; }
-
 .users-list {
   list-style: none;
   margin: 16px 0 0;
@@ -1650,17 +1639,6 @@ mark { background: var(--mark); color: inherit; border-radius: 2px; padding: 0 1
 
 .user-item-info { min-width: 0; }
 .user-item-name { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 14px; font-weight: 600; }
-
-.user-badge {
-  font-size: 10px;
-  font-weight: 600;
-  color: var(--muted);
-  background: var(--card);
-  border: 1px solid var(--border);
-  border-radius: 999px;
-  padding: 1px 8px;
-}
-.user-badge.admin { color: var(--accent); border-color: rgba(47, 107, 237, 0.4); }
 
 .user-item-github {
   font-size: 12px;

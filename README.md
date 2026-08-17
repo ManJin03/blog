@@ -9,7 +9,7 @@
 - 顶部导航栏：站名、Vercount 访客计数、动态搜索、GitHub / 技术博客链接、右上角登录按钮 / 用户头像
 - 个人资料卡片：ManJin · 学生 · 西安交通大学大三在读 · C/C++ / Linux
 - 微博式动态流：发帖（1000 字以内，支持 Markdown、`#话题#` 高亮）、**编辑**、删除、置顶
-- 多账号系统：管理员 + 普通账号，账号密码登录（密码 PBKDF2 哈希存储，不可查询只能重置）；普通账号不可自行注册，仅管理员在后台创建/增删改查
+- 多账号系统：单一管理员（账号名/密码由环境变量决定，默认 `admin`/`admin123456`）+ 普通账号（密码 PBKDF2 哈希存储，不可查询只能重置）；普通账号不可自行注册，仅管理员在后台创建/增删改查
 - 评论系统：评论收进时间行右侧的气泡图标，点击展开/收起全部评论（每帖独立）；每帖可评论（500 字以内，支持 Markdown 与 `#话题#`），仅登录的普通账号可评论，管理员不可评论；作者本人与管理员可改/删评论；评论同样支持搜索与标签筛选
 - 点赞：每帖点赞图标（爱心），人人可点（无需登录）、可再次点击取消；陌生人点赞记录匿名设备标识，登录账号后点赞绑定到账号；仅记录点赞数，不记录点赞者身份
 - 作品展示：以最近提交（push）时间为参考排序，网格自适应窗口宽度，展示全部本人仓库
@@ -63,7 +63,7 @@
 npx wrangler pages dev .
 ```
 
-打开 <http://localhost:8880> ，本地密码在 `.dev.vars` 中（默认 `test123456`），本地 KV 数据保存在 `.wrangler/` 目录。端口可在 `wrangler.toml` 的 `[dev]` 表中修改，也可用 `--port` 参数临时覆盖。
+打开 <http://localhost:8880> ，本地账号密码在 `.dev.vars` 中（默认 `admin` / `admin123456`），本地 KV 数据保存在 `.wrangler/` 目录。端口可在 `wrangler.toml` 的 `[dev]` 表中修改，也可用 `--port` 参数临时覆盖。
 
 > 注：Vercount 统计脚本只在 `http(s)://` 页面下计数，本地 `http://127.0.0.1` 会计入 `127.0.0.1` 域名，不影响线上数据。
 
@@ -78,17 +78,20 @@ post:{id}            # 每帖独立键：JSON 存完整帖子（含评论）
                      # { id, content, createdAt, updatedAt, pinned, comments: [...] }
                      # comments 每项：{ id, content, author, authorGithub, createdAt, updatedAt }
 
-users:index          # 索引键：JSON 数组，存每账号公开信息（不含密码）
+users:index          # 索引键：JSON 数组，存每个普通账号公开信息（不含密码）
                      # [{ username, github, role, createdAt }, ...]
-user:{username}      # 每账号独立键：JSON 存完整信息（含密码哈希与盐）
+user:{username}      # 每个普通账号独立键：JSON 存完整信息（含密码哈希与盐）
                      # { username, passwordHash, passwordSalt, github, role, createdAt }
+
+# 管理员账号不写入 KV：系统只允许一个管理员，账号名/密码由环境变量
+# ADMIN_USERNAME / ADMIN_PASSWORD 决定（默认 admin / admin123456）
 ```
 
 - 索引只存元信息，帖子/账号内容按 id/username 独立存放，更新/删除单条无需整数组读写
 - 旧版"全部帖子存于单个 `posts` 键"的数据会在首次读取时**自动迁移**到新结构并删除旧键，无需手动处理
 - 旧帖无 `comments` 字段时，读取时自动补为 `[]`，评论功能对存量数据无感可用
-- 旧版 `ADMIN_PASSWORD` 单密码方案：首次访问时自动初始化为管理员账号（用户名取 `ADMIN_USERNAME`，默认 `ManJin`），无需手动迁移
-- 密码使用 PBKDF2-SHA256（10 万次迭代）+ 随机盐哈希存储，**密码不可查询、只能重置**
+- 管理员账号：系统**只允许一个管理员**，其账号名/密码由环境变量 `ADMIN_USERNAME` / `ADMIN_PASSWORD` 决定（未设置则默认 `admin` / `admin123456`）。管理员**不写入 KV**，登录时直接校验环境变量；管理员密码只能通过修改环境变量来变更
+- KV 中只存储普通账号，管理员可对普通账号增删查改（含重置密码），普通账号密码使用 PBKDF2-SHA256（10 万次迭代）+ 随机盐哈希存储，**密码不可查询、只能重置**
 - 本地开发时数据位于 `.wrangler/` 目录（`miniflare` 模拟 KV）
 
 ## 部署到 Cloudflare Pages
@@ -104,12 +107,11 @@ user:{username}      # 每账号独立键：JSON 存完整信息（含密码哈�
    - Build output directory：`/`
 
 4. **配置环境变量**：Pages 项目 Settings → Environment variables，为 Production 和 Preview 都添加（也可用 `npx wrangler pages secret put <名称>`）：
-   - `ADMIN_PASSWORD`：初始管理员账号密码（首次访问自动创建管理员，务必使用强密码）
-   - `ADMIN_USERNAME`：初始管理员账号名（可选，默认 `ManJin`）
-   - `ADMIN_GITHUB`：初始管理员的 GitHub 主页链接（可选，如 `https://github.com/ManJin03`）
+   - `ADMIN_PASSWORD`：管理员账号密码（不设置则默认 `admin123456`）
+   - `ADMIN_USERNAME`：管理员账号名（可选；不设置则默认 `admin`）。管理员密码只能通过修改此环境变量来变更
    - `SESSION_SECRET`：会话签名密钥，可用 `openssl rand -hex 32` 生成
 
-5. **部署并使用**：部署完成后打开 `https://<你的域名>`，点击导航栏右侧"登录"输入账号密码。管理员可发布 / 编辑 / 删除动态、置顶，并在登录后点击右上角头像进入"账号管理"页增删改查账号（重置密码）。普通账号登录后可评论、修改删除自己的评论，右上角显示其头像。未登录只能浏览和搜索。
+5. **部署并使用**：部署完成后打开 `https://<你的域名>`，点击导航栏右侧"登录"输入账号密码。管理员可发布 / 编辑 / 删除动态、置顶，并在登录后点击右上角头像进入"账号管理"页对普通账号增删改查（重置密码）。普通账号登录后可评论、修改删除自己的评论，右上角显示其头像。未登录只能浏览和搜索。
 
 ## 接口说明
 
@@ -118,10 +120,10 @@ user:{username}      # 每账号独立键：JSON 存完整信息（含密码哈�
 | GET | /api/me | - | 当前登录状态与身份（username / role / github / isAdmin） |
 | POST | /api/login | - | 账号密码登录（body: `{"username":"...","password":"..."}`） |
 | DELETE | /api/login | - | 退出登录 |
-| GET | /api/users | 管理员 | 账号列表（不含密码） |
-| POST | /api/users | 管理员 | 创建账号（body: `{"username","password","github","role"}`） |
-| PATCH | /api/users/:username | 管理员 | 修改账号（github / role / password 重置，密码不可查询） |
-| DELETE | /api/users/:username | 管理员 | 删除账号 |
+| GET | /api/users | 管理员 | 普通账号列表（不含密码） |
+| POST | /api/users | 管理员 | 创建普通账号（body: `{"username","password","github"}`） |
+| PATCH | /api/users/:username | 管理员 | 修改普通账号（github / password 重置，密码不可查询） |
+| DELETE | /api/users/:username | 管理员 | 删除普通账号 |
 | GET | /api/latest-post | - | 技术博客最新文章（服务端代理 RSS，10 分钟缓存） |
 | GET | /api/posts | - | 动态列表（含评论） |
 | POST | /api/posts | 管理员 | 发布动态（body: `{"content":"..."}`） |
