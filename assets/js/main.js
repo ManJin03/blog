@@ -10,6 +10,7 @@ const els = {
   authBtn: $('#authBtn'),
   authBtnText: $('#authBtnText'),
   userAvatarBtn: $('#userAvatarBtn'),
+  logoutBtn: $('#logoutBtn'),
   composer: $('#composer'),
   postInput: $('#postInput'),
   charCount: $('#charCount'),
@@ -50,13 +51,33 @@ const state = {
   chipsExpanded: false, // 标签栏是否已展开（默认只显示一行）
   commentDraft: {}, // 各帖评论草稿 { [postId]: text }
   commentEditingId: null, // 正在编辑的评论 id（格式 `${postId}:${commentId}`）
+  commentsVisible: {}, // 各帖评论是否显示 { [postId]: true }
+  deviceId: '', // 匿名设备标识（用于点赞去重）
 };
 
+// 匿名设备标识：仅用于"每设备点赞一次"的去重，不关联任何身份
+function getDeviceId() {
+  const KEY = 'mj_device';
+  try {
+    let id = localStorage.getItem(KEY);
+    if (!id) {
+      id = (crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`);
+      localStorage.setItem(KEY, id);
+    }
+    return id;
+  } catch {
+    return `dev-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  }
+}
+const deviceId = getDeviceId();
+
 function render() {
+  state.deviceId = deviceId;
   // 只有管理员可以发帖
   els.composer.classList.toggle('hidden', !state.isAdmin);
   els.authBtn.classList.toggle('hidden', state.authed);
   els.userAvatarBtn.classList.toggle('hidden', !state.authed);
+  els.logoutBtn.classList.toggle('hidden', !state.authed);
   if (state.authed) {
     els.authBtnText.textContent = '登录';
     renderUserAvatar();
@@ -269,6 +290,29 @@ initFeed({
       toast(err.message, 'error');
     }
   },
+  onCommentsToggle(postId) {
+    state.commentsVisible[postId] = !state.commentsVisible[postId];
+    render();
+  },
+  async onToggleLike(postId) {
+    const post = state.posts.find((p) => p.id === postId);
+    if (!post) return;
+    try {
+      const { likes, liked } = await api.toggleLike(postId, deviceId);
+      post.likes = likes;
+      // 更新本地 likedDevices，保持与后端一致（后端返回 likes 数，liked 表示当前状态）
+      if (Array.isArray(post.likedDevices)) {
+        if (liked) {
+          if (!post.likedDevices.includes(deviceId)) post.likedDevices.push(deviceId);
+        } else {
+          post.likedDevices = post.likedDevices.filter((d) => d !== deviceId);
+        }
+      }
+      render();
+    } catch (err) {
+      toast(err.message, 'error');
+    }
+  },
 });
 
 /* ---------- 登录 / 退出 ---------- */
@@ -326,12 +370,17 @@ els.postBtn.addEventListener('click', submitPost);
 
 els.authBtn.addEventListener('click', () => openModal());
 
-// 已登录用户点击头像：管理员打开账号管理，普通用户退出登录
-els.userAvatarBtn.addEventListener('click', async () => {
+// 已登录用户点击头像：管理员打开账号管理；普通用户仅提示账号名
+els.userAvatarBtn.addEventListener('click', () => {
   if (state.isAdmin) {
     openUsers();
     return;
   }
+  if (state.me) toast(`已登录：${state.me.username}`, 'info');
+});
+
+// 退出登录按钮
+els.logoutBtn.addEventListener('click', async () => {
   const ok = await confirmBox({ message: '确定退出登录吗？', confirmText: '退出' });
   if (!ok) return;
   await logout();

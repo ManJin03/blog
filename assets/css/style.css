@@ -239,6 +239,22 @@ body {
   font-size: 14px;
 }
 
+.logout-btn {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 13px;
+  color: var(--muted);
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 5px 13px;
+  white-space: nowrap;
+  transition: color 0.15s, border-color 0.15s;
+}
+.logout-btn:hover { color: var(--danger); border-color: var(--danger); }
+
 /* ---------- 三栏布局 ---------- */
 .layout {
   max-width: 1320px;
@@ -729,6 +745,30 @@ mark { background: var(--mark); color: inherit; border-radius: 2px; padding: 0 1
 .edited-tag { font-style: italic; font-size: 12px; }
 
 .post-actions { margin-left: auto; display: flex; gap: 4px; }
+
+/* 评论 + 点赞图标（时间行最右） */
+.post-meta-actions { display: flex; align-items: center; gap: 6px; margin-left: auto; }
+.post-actions + .post-meta-actions { margin-left: 6px; }
+
+.meta-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  font-size: 12px;
+  padding: 3px 6px;
+  border-radius: 8px;
+  transition: color 0.15s, background 0.15s;
+  font-variant-numeric: tabular-nums;
+}
+.meta-btn:hover { color: var(--accent); background: var(--hover); }
+.meta-btn.active { color: var(--accent); }
+.meta-btn.liked { color: var(--danger); }
+.meta-btn.liked:hover { color: var(--danger); background: rgba(229, 72, 77, 0.1); }
+
+.meta-count { font-variant-numeric: tabular-nums; }
 
 .act-btn {
   display: inline-flex;

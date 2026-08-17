@@ -87,6 +87,15 @@ function visiblePosts(state) {
 export function renderFeed(state) {
   renderFilterBar(state);
 
+  // 搜索命中评论的帖子自动展开评论，保证命中内容可见
+  if (state.query.trim()) {
+    const q = state.query.trim().toLowerCase();
+    for (const p of state.posts) {
+      const hitComment = (p.comments || []).some((c) => c.content.toLowerCase().includes(q));
+      if (hitComment && !p.content.toLowerCase().includes(q)) state.commentsVisible[p.id] = true;
+    }
+  }
+
   const all = visiblePosts(state);
   const pinned = all.filter((p) => p.pinned);
   const normal = all.filter((p) => !p.pinned);
@@ -233,6 +242,10 @@ function postHtml(p, state) {
       </button>
     </div>` : '';
 
+  const comments = Array.isArray(p.comments) ? p.comments : [];
+  const commentsVisible = !!state.commentsVisible[p.id];
+  const liked = isLikedInFeed(p, state);
+
   return `
     <li class="post" data-id="${escAttr(p.id)}">
       <div class="post-content clamped">${fmtContent(p.content, state.query)}</div>
@@ -241,12 +254,29 @@ function postHtml(p, state) {
         <time datetime="${new Date(p.createdAt).toISOString()}" title="${fmtFull(p.createdAt)}">${timeAgo(p.createdAt)}</time>
         ${p.updatedAt ? `<span class="edited-tag" title="${fmtFull(p.updatedAt)}">已编辑</span>` : ''}
         ${actions}
+        <div class="post-meta-actions">
+          <button class="meta-btn${commentsVisible ? ' active' : ''}" type="button" data-comments-toggle="${escAttr(p.id)}" title="${commentsVisible ? '收起评论' : '查看评论'}" aria-expanded="${commentsVisible}">
+            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
+            <span class="meta-count">${comments.length}</span>
+          </button>
+          <button class="meta-btn${liked ? ' liked' : ''}" type="button" data-like="${escAttr(p.id)}" title="${liked ? '取消点赞' : '点赞'}" aria-pressed="${liked}">
+            <svg viewBox="0 0 24 24" width="15" height="15" fill="${liked ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+            <span class="meta-count">${p.likes || 0}</span>
+          </button>
+        </div>
       </div>
-      ${commentsHtml(p, state)}
+      ${commentsVisible ? commentsHtml(p, state) : ''}
     </li>`;
 }
 
 /* ---------- 评论区 ---------- */
+
+// 当前设备是否已点赞某帖（deviceId 由 state 传入）
+function isLikedInFeed(post, state) {
+  const d = post && post.likedDevices;
+  const did = state && state.deviceId;
+  return Array.isArray(d) && !!did && d.includes(did);
+}
 
 // 评论头像 URL：github 主页 + '.png'，兜底用账号名首字母
 function commentAvatar(c) {
@@ -257,48 +287,52 @@ function commentAvatar(c) {
   return { url, fallback };
 }
 
+function commentItemHtml(p, c, state) {
+  const editing = state.commentEditingId === `${p.id}:${c.id}`;
+  if (editing) return commentEditHtml(c);
+
+  const isAuthor = state.me && state.me.username === c.author;
+  // 作者本人或管理员可改/删
+  const canManage = isAuthor || state.isAdmin;
+
+  const { url, fallback } = commentAvatar(c);
+  // 头像：字母兜底 + 图片覆盖，图片加载失败时透明，字母自然显示（避免内联脚本）
+  const avatarHtml = url
+    ? `<span class="comment-avatar-fallback">${esc(fallback)}</span><img class="comment-avatar-img" src="${escAttr(url)}" alt="${escAttr(c.author)}" loading="lazy" />`
+    : `<span class="comment-avatar-fallback">${esc(fallback)}</span>`;
+
+  return `
+    <li class="comment" data-cid="${escAttr(c.id)}">
+      <div class="comment-avatar">${avatarHtml}</div>
+      <div class="comment-body">
+        <div class="comment-head">
+          <span class="comment-author">${esc(c.author)}</span>
+          <time datetime="${new Date(c.createdAt).toISOString()}" title="${fmtFull(c.createdAt)}">${timeAgo(c.createdAt)}</time>
+          ${c.updatedAt ? `<span class="edited-tag" title="${fmtFull(c.updatedAt)}">已编辑</span>` : ''}
+        </div>
+        <div class="comment-content">${fmtContent(c.content, state.query)}</div>
+        ${canManage ? `
+          <div class="comment-actions">
+            <button class="act-btn" type="button" data-cedit="${escAttr(c.id)}" title="编辑">
+              <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>
+              编辑
+            </button>
+            <button class="act-btn danger" type="button" data-cdel="${escAttr(c.id)}" title="删除">
+              <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></svg>
+              删除
+            </button>
+          </div>` : ''}
+      </div>
+    </li>`;
+}
+
 function commentsHtml(p, state) {
   const comments = Array.isArray(p.comments) ? p.comments : [];
   // 管理员不能评论；未登录不能评论；普通账号可评论
   const canComment = state.authed && !state.isAdmin;
 
-  const list = comments.map((c) => {
-    const editing = state.commentEditingId === `${p.id}:${c.id}`;
-    const isAuthor = state.me && state.me.username === c.author;
-    // 作者本人或管理员可改/删
-    const canManage = isAuthor || state.isAdmin;
-    if (editing) return commentEditHtml(c);
-
-    const { url, fallback } = commentAvatar(c);
-    // 头像：字母兜底 + 图片覆盖，图片加载失败时透明，字母自然显示（避免内联脚本）
-    const avatarHtml = url
-      ? `<span class="comment-avatar-fallback">${esc(fallback)}</span><img class="comment-avatar-img" src="${escAttr(url)}" alt="${escAttr(c.author)}" loading="lazy" />`
-      : `<span class="comment-avatar-fallback">${esc(fallback)}</span>`;
-
-    return `
-      <li class="comment" data-cid="${escAttr(c.id)}">
-        <div class="comment-avatar">${avatarHtml}</div>
-        <div class="comment-body">
-          <div class="comment-head">
-            <span class="comment-author">${esc(c.author)}</span>
-            <time datetime="${new Date(c.createdAt).toISOString()}" title="${fmtFull(c.createdAt)}">${timeAgo(c.createdAt)}</time>
-            ${c.updatedAt ? `<span class="edited-tag" title="${fmtFull(c.updatedAt)}">已编辑</span>` : ''}
-          </div>
-          <div class="comment-content">${fmtContent(c.content, state.query)}</div>
-          ${canManage ? `
-            <div class="comment-actions">
-              <button class="act-btn" type="button" data-cedit="${escAttr(c.id)}" title="编辑">
-                <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>
-                编辑
-              </button>
-              <button class="act-btn danger" type="button" data-cdel="${escAttr(c.id)}" title="删除">
-                <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></svg>
-                删除
-              </button>
-            </div>` : ''}
-        </div>
-      </li>`;
-  }).join('');
+  // 评论区内显示全部评论（整体显示/隐藏由气泡图标控制）
+  const list = comments.map((c) => commentItemHtml(p, c, state)).join('');
 
   const draft = state.commentDraft[p.id] || '';
   const composer = canComment ? `
@@ -361,6 +395,8 @@ function onClick(e) {
   else if (btn.dataset.edit) handlers.onEdit?.(id);
   else if (btn.hasAttribute('data-pin')) handlers.onTogglePin?.(id);
   else if (btn.hasAttribute('data-expand')) togglePostExpand(btn);
+  else if (btn.hasAttribute('data-comments-toggle')) handlers.onCommentsToggle?.(btn.dataset.commentsToggle);
+  else if (btn.hasAttribute('data-like')) handlers.onToggleLike?.(btn.dataset.like);
   else if (btn.hasAttribute('data-cancel')) handlers.onCancelEdit?.();
   else if (btn.hasAttribute('data-save')) {
     const area = postLi?.querySelector('.edit-area');

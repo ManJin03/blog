@@ -41,7 +41,7 @@ export async function writePost(env, post) {
 }
 
 // 读取全部帖子（按索引顺序，各帖并行读取）
-// 迁移：旧帖无 comments 字段时补为 []，保证评论功能对存量数据无感可用
+// 迁移：旧帖无 comments 字段时补为 []，无 likes 字段时补为 0，保证新功能对存量数据无感可用
 export async function readPosts(env) {
   const index = await ensureIndex(env);
   if (!index.length) return [];
@@ -51,6 +51,8 @@ export async function readPosts(env) {
   const list = posts.filter(Boolean);
   for (const p of list) {
     if (!Array.isArray(p.comments)) p.comments = [];
+    if (typeof p.likes !== 'number') p.likes = 0;
+    if (!Array.isArray(p.likedDevices)) p.likedDevices = [];
   }
   return list;
 }
@@ -59,12 +61,41 @@ export async function readPosts(env) {
 export async function addPost(env, post) {
   const index = await ensureIndex(env);
   if (!Array.isArray(post.comments)) post.comments = [];
+  if (typeof post.likes !== 'number') post.likes = 0;
+  if (!Array.isArray(post.likedDevices)) post.likedDevices = [];
   index.unshift(metaOf(post));
   await Promise.all([
     env.KV.put(INDEX_KEY, JSON.stringify(index)),
     env.KV.put(postKey(post.id), JSON.stringify(post)),
   ]);
   return post;
+}
+
+// 点赞/取消点赞：deviceId 为匿名设备标识（仅用于"每设备一次"去重，不关联任何身份）
+// 已点过 → 取消（likes-1，移除 deviceId）；未点过 → 点赞（likes+1，加入 deviceId）
+// 返回 { likes, liked } 或 { error, status }
+export async function toggleLike(env, id, deviceId) {
+  const post = await readPost(env, id);
+  if (!post) return { error: '动态不存在', status: 404 };
+  const likedDevices = Array.isArray(post.likedDevices) ? post.likedDevices : [];
+  let likes = typeof post.likes === 'number' ? post.likes : 0;
+  const idx = likedDevices.indexOf(deviceId);
+  let liked;
+  if (idx === -1) {
+    // 点赞
+    likedDevices.push(deviceId);
+    likes += 1;
+    liked = true;
+  } else {
+    // 取消点赞
+    likedDevices.splice(idx, 1);
+    likes = Math.max(0, likes - 1);
+    liked = false;
+  }
+  post.likes = likes;
+  post.likedDevices = likedDevices;
+  await writePost(env, post);
+  return { likes, liked };
 }
 
 // 更新帖子：patch 支持 { content } / { pinned }；仅改内容时更新 updatedAt

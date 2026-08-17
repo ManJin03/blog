@@ -65,3 +65,9 @@ export const deleteComment = (postId, commentId) =>
   request(`/api/posts/${encodeURIComponent(postId)}/comments/${encodeURIComponent(commentId)}`, {
     method: 'DELETE',
   });
+
+/* ---------- 点赞 ---------- */
+export const toggleLike = (postId, deviceId) => request(`/api/posts/${encodeURIComponent(postId)}/like`, {
+  method: 'POST',
+  body: JSON.stringify({ deviceId }),
+});
