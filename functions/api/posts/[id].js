@@ -1,10 +1,11 @@
-// PATCH   /api/posts/:id —— 修改动态（需登录）
-// DELETE /api/posts/:id —— 删除动态（需登录）
+// PATCH   /api/posts/:id —— 修改动态（需管理员）
+// DELETE /api/posts/:id —— 删除动态（需管理员）
 import { json } from '../../_lib/http.js';
 import { updatePost, deletePost, parseContent } from '../../_lib/posts.js';
 
 export async function onRequestPatch({ request, env, data, params }) {
   if (!data.authed) return json({ error: '请先登录' }, 401);
+  if (!data.isAdmin) return json({ error: '仅管理员可修改动态' }, 403);
   if (!env.KV) return json({ error: 'KV 存储未绑定，请查看 README 配置 KV 命名空间' }, 500);
 
   let body;
@@ -32,6 +33,7 @@ export async function onRequestPatch({ request, env, data, params }) {
 
 export async function onRequestDelete({ env, data, params }) {
   if (!data.authed) return json({ error: '请先登录' }, 401);
+  if (!data.isAdmin) return json({ error: '仅管理员可删除动态' }, 403);
   if (!env.KV) return json({ error: 'KV 存储未绑定，请查看 README 配置 KV 命名空间' }, 500);
 
   const ok = await deletePost(env, params.id);

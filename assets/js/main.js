@@ -9,6 +9,7 @@ const $ = (sel) => document.querySelector(sel);
 const els = {
   authBtn: $('#authBtn'),
   authBtnText: $('#authBtnText'),
+  userAvatarBtn: $('#userAvatarBtn'),
   composer: $('#composer'),
   postInput: $('#postInput'),
   charCount: $('#charCount'),
@@ -19,13 +20,27 @@ const els = {
   modalClose: $('#modalClose'),
   modalMask: $('#modalMask'),
   loginForm: $('#loginForm'),
+  usernameInput: $('#usernameInput'),
   passwordInput: $('#passwordInput'),
   loginBtn: $('#loginBtn'),
   loginError: $('#loginError'),
+  usersModal: $('#usersModal'),
+  usersMask: $('#usersMask'),
+  usersClose: $('#usersClose'),
+  userForm: $('#userForm'),
+  userFormError: $('#userFormError'),
+  newUsername: $('#newUsername'),
+  newPassword: $('#newPassword'),
+  newGithub: $('#newGithub'),
+  createUserBtn: $('#createUserBtn'),
+  usersList: $('#usersList'),
 };
 
 const state = {
-  authed: false,   // 是否已登录（站长）
+  authed: false,   // 是否已登录
+  isAdmin: false,  // 是否为管理员
+  me: null,        // 当前登录用户 { username, role, github }
+  users: [],       // 账号列表（仅管理员加载）
   posts: [],       // 全部动态
   query: '',       // 搜索关键词
   tag: null,       // 选中的标签筛选（#话题#内容，不含井号）
@@ -33,14 +48,53 @@ const state = {
   editingId: null, // 正在编辑的动态 id
   listExpanded: false, // 普通动态列表是否已展开（默认折叠为 5 条）
   chipsExpanded: false, // 标签栏是否已展开（默认只显示一行）
+  commentDraft: {}, // 各帖评论草稿 { [postId]: text }
+  commentEditingId: null, // 正在编辑的评论 id（格式 `${postId}:${commentId}`）
 };
 
 function render() {
-  els.composer.classList.toggle('hidden', !state.authed);
-  els.authBtnText.textContent = state.authed ? '退出' : '登录';
-  els.authBtn.title = state.authed ? '退出登录' : '站长登录后可发布动态';
+  // 只有管理员可以发帖
+  els.composer.classList.toggle('hidden', !state.isAdmin);
+  els.authBtn.classList.toggle('hidden', state.authed);
+  els.userAvatarBtn.classList.toggle('hidden', !state.authed);
+  if (state.authed) {
+    els.authBtnText.textContent = '登录';
+    renderUserAvatar();
+  }
   els.searchClear.classList.toggle('hidden', !state.query);
   renderFeed(state);
+}
+
+// 头像：github 链接 + '.png' 获取，失败回退账号名首字母
+function avatarUrl(github) {
+  if (!github) return null;
+  const g = String(github).replace(/\/+$/, '');
+  return `${g}.png`;
+}
+
+function userInitials(name) {
+  const s = String(name || '').trim();
+  if (!s) return '?';
+  return s.slice(0, 1).toUpperCase();
+}
+
+function renderUserAvatar() {
+  if (!state.me) return;
+  const url = avatarUrl(state.me.github);
+  const btn = els.userAvatarBtn;
+  btn.title = state.me.username;
+  btn.innerHTML = '';
+  // 字母兜底 + 图片覆盖：图片加载失败时透明，字母自然显示
+  const fallback = document.createElement('span');
+  fallback.className = 'user-avatar-fallback';
+  fallback.textContent = userInitials(state.me.username);
+  btn.appendChild(fallback);
+  if (!url) return;
+  const img = new Image();
+  img.className = 'user-avatar-img';
+  img.alt = state.me.username;
+  img.src = url;
+  btn.appendChild(img);
 }
 
 /* ---------- 发帖 ---------- */
@@ -155,15 +209,76 @@ initFeed({
       toast(err.message, 'error');
     }
   },
+
+  /* ---------- 评论 ---------- */
+  onCommentDraft(postId, text) {
+    state.commentDraft[postId] = text;
+  },
+  async onSubmitComment(postId, content) {
+    try {
+      const { comment } = await api.createComment(postId, content);
+      const post = state.posts.find((p) => p.id === postId);
+      if (post) {
+        post.comments = post.comments || [];
+        post.comments.push(comment);
+      }
+      delete state.commentDraft[postId];
+      render();
+    } catch (err) {
+      toast(err.message, 'error');
+    }
+  },
+  onCommentEdit(postId, commentId) {
+    state.commentEditingId = `${postId}:${commentId}`;
+    render();
+  },
+  onCommentCancelEdit() {
+    state.commentEditingId = null;
+    render();
+  },
+  async onCommentSaveEdit(postId, commentId, content) {
+    try {
+      const { comment } = await api.updateComment(postId, commentId, content);
+      const post = state.posts.find((p) => p.id === postId);
+      if (post && Array.isArray(post.comments)) {
+        const i = post.comments.findIndex((c) => c.id === commentId);
+        if (i !== -1) post.comments[i] = comment;
+      }
+      state.commentEditingId = null;
+      render();
+    } catch (err) {
+      toast(err.message, 'error');
+    }
+  },
+  async onCommentDelete(postId, commentId) {
+    const ok = await confirmBox({
+      message: '确定删除这条评论吗？删除后无法恢复。',
+      confirmText: '删除',
+      danger: true,
+    });
+    if (!ok) return;
+    try {
+      await api.deleteComment(postId, commentId);
+      const post = state.posts.find((p) => p.id === postId);
+      if (post && Array.isArray(post.comments)) {
+        post.comments = post.comments.filter((c) => c.id !== commentId);
+      }
+      if (state.commentEditingId === `${postId}:${commentId}`) state.commentEditingId = null;
+      render();
+    } catch (err) {
+      toast(err.message, 'error');
+    }
+  },
 });
 
 /* ---------- 登录 / 退出 ---------- */
 
 function openModal() {
   els.loginError.classList.add('hidden');
+  els.usernameInput.value = '';
   els.passwordInput.value = '';
   els.loginModal.classList.remove('hidden');
-  els.passwordInput.focus();
+  els.usernameInput.focus();
 }
 
 function closeModal() {
@@ -172,13 +287,16 @@ function closeModal() {
 
 async function login(e) {
   e.preventDefault();
+  const username = els.usernameInput.value.trim();
   const password = els.passwordInput.value;
-  if (!password) return;
+  if (!username || !password) return;
   els.loginBtn.disabled = true;
   els.loginError.classList.add('hidden');
   try {
-    await api.login(password);
+    const { user } = await api.login(username, password);
     state.authed = true;
+    state.me = user;
+    state.isAdmin = user.role === 'admin';
     closeModal();
     render();
     refreshPosts(); // 静默刷新，保证数据最新
@@ -206,19 +324,183 @@ els.postInput.addEventListener('keydown', (e) => {
 });
 els.postBtn.addEventListener('click', submitPost);
 
-els.authBtn.addEventListener('click', async () => {
-  if (!state.authed) return openModal();
+els.authBtn.addEventListener('click', () => openModal());
+
+// 已登录用户点击头像：管理员打开账号管理，普通用户退出登录
+els.userAvatarBtn.addEventListener('click', async () => {
+  if (state.isAdmin) {
+    openUsers();
+    return;
+  }
+  const ok = await confirmBox({ message: '确定退出登录吗？', confirmText: '退出' });
+  if (!ok) return;
+  await logout();
+});
+
+async function logout() {
   await api.logout();
   state.authed = false;
+  state.isAdmin = false;
+  state.me = null;
+  state.users = [];
   state.editingId = null;
+  closeUsers();
   render();
-});
+}
+
 els.modalClose.addEventListener('click', closeModal);
 els.modalMask.addEventListener('click', closeModal);
 els.loginForm.addEventListener('submit', login);
 document.addEventListener('keydown', (e) => {
-  if (e.key === 'Escape' && !els.loginModal.classList.contains('hidden')) closeModal();
+  if (e.key !== 'Escape') return;
+  if (!els.loginModal.classList.contains('hidden')) closeModal();
+  if (!els.usersModal.classList.contains('hidden')) closeUsers();
 });
+
+/* ---------- 账号管理（仅管理员） ---------- */
+
+function openUsers() {
+  els.userFormError.classList.add('hidden');
+  els.newUsername.value = '';
+  els.newPassword.value = '';
+  els.newGithub.value = '';
+  els.usersModal.classList.remove('hidden');
+  refreshUsers();
+}
+
+function closeUsers() {
+  els.usersModal.classList.add('hidden');
+}
+
+async function refreshUsers() {
+  try {
+    const { users } = await api.getUsers();
+    state.users = users;
+    renderUsers();
+  } catch (err) {
+    toast(err.message, 'error');
+  }
+}
+
+function renderUsers() {
+  if (!state.users.length) {
+    els.usersList.innerHTML = '<li class="users-empty">暂无账号</li>';
+    return;
+  }
+  els.usersList.innerHTML = state.users.map((u) => `
+    <li class="user-item" data-username="${escapeHtml(u.username)}">
+      <div class="user-item-main">
+        <div class="user-item-avatar">${userInitials(u.username)}</div>
+        <div class="user-item-info">
+          <div class="user-item-name">
+            ${escapeHtml(u.username)}
+            ${u.role === 'admin' ? '<span class="user-badge admin">管理员</span>' : '<span class="user-badge">普通</span>'}
+            ${u.github ? `<a class="user-item-github" href="${escapeHtml(u.github)}" target="_blank" rel="noopener noreferrer">${escapeHtml(u.github.replace(/^https?:\/\//, ''))}</a>` : ''}
+          </div>
+        </div>
+      </div>
+      <div class="user-item-actions">
+        <button class="act-btn" type="button" data-edit-user="${escapeHtml(u.username)}" title="编辑">编辑</button>
+        <button class="act-btn danger" type="button" data-del-user="${escapeHtml(u.username)}" title="删除">删除</button>
+      </div>
+    </li>
+  `).join('');
+}
+
+async function createUser(e) {
+  e.preventDefault();
+  const username = els.newUsername.value.trim();
+  const password = els.newPassword.value;
+  const github = els.newGithub.value.trim();
+  const role = els.userForm.querySelector('input[name="newRole"]:checked')?.value || 'user';
+  if (!username || !password) return;
+  els.createUserBtn.disabled = true;
+  els.userFormError.classList.add('hidden');
+  try {
+    await api.createUser(username, password, github, role);
+    els.newUsername.value = '';
+    els.newPassword.value = '';
+    els.newGithub.value = '';
+    toast('账号创建成功', 'success');
+    refreshUsers();
+  } catch (err) {
+    els.userFormError.textContent = err.message;
+    els.userFormError.classList.remove('hidden');
+  } finally {
+    els.createUserBtn.disabled = false;
+  }
+}
+
+// 编辑账号：弹出一个内联编辑区（github / role / 重置密码）
+async function editUser(username) {
+  const u = state.users.find((x) => x.username === username);
+  if (!u) return;
+  const card = document.createElement('div');
+  card.className = 'user-edit-card';
+  card.innerHTML = `
+    <p class="user-edit-title">编辑账号 <strong>${escapeHtml(username)}</strong></p>
+    <input class="user-edit-github" type="text" placeholder="GitHub 主页链接（可选）" value="${escapeHtml(u.github || '')}" />
+    <div class="user-form-row">
+      <label class="role-label"><input type="radio" name="editRole" value="user" ${u.role === 'user' ? 'checked' : ''} />普通账号</label>
+      <label class="role-label"><input type="radio" name="editRole" value="admin" ${u.role === 'admin' ? 'checked' : ''} />管理员</label>
+    </div>
+    <input class="user-edit-password" type="password" placeholder="重置密码（留空则不改）" autocomplete="new-password" />
+    <p class="login-error hidden"></p>
+    <div class="user-edit-actions">
+      <button class="btn-ghost" type="button" data-cancel-edit>取消</button>
+      <button class="publish-btn small" type="button" data-save-edit>保存</button>
+    </div>
+  `;
+  const item = els.usersList.querySelector(`[data-username="${CSS.escape(username)}"]`);
+  if (item) item.replaceWith(card);
+
+  const errEl = card.querySelector('.login-error');
+  const showErr = (msg) => { errEl.textContent = msg; errEl.classList.remove('hidden'); };
+
+  card.querySelector('[data-cancel-edit]').addEventListener('click', () => renderUsers());
+  card.querySelector('[data-save-edit]').addEventListener('click', async () => {
+    const github = card.querySelector('.user-edit-github').value.trim();
+    const role = card.querySelector('input[name="editRole"]:checked')?.value || 'user';
+    const password = card.querySelector('.user-edit-password').value;
+    const patch = { github, role };
+    if (password) patch.password = password;
+    try {
+      await api.updateUser(username, patch);
+      toast('账号已更新', 'success');
+      refreshUsers();
+    } catch (err) {
+      showErr(err.message);
+    }
+  });
+}
+
+async function removeUser(username) {
+  const u = state.users.find((x) => x.username === username);
+  if (!u) return;
+  const ok = await confirmBox({
+    message: `确定删除账号「${username}」吗？该账号将无法登录。`,
+    confirmText: '删除',
+    danger: true,
+  });
+  if (!ok) return;
+  try {
+    await api.deleteUser(username);
+    toast('账号已删除', 'success');
+    refreshUsers();
+  } catch (err) {
+    toast(err.message, 'error');
+  }
+}
+
+els.usersList.addEventListener('click', (e) => {
+  const editBtn = e.target.closest('[data-edit-user]');
+  const delBtn = e.target.closest('[data-del-user]');
+  if (editBtn) editUser(editBtn.dataset.editUser);
+  else if (delBtn) removeUser(delBtn.dataset.delUser);
+});
+els.usersMask.addEventListener('click', closeUsers);
+els.usersClose.addEventListener('click', closeUsers);
+els.userForm.addEventListener('submit', createUser);
 
 /* =====================================================================
  * 以下为页面增强部分：作品展示、右侧导航高亮、滚动揭示、时钟、阅读进度
@@ -723,6 +1005,10 @@ function setupProgress() {
     api.getPosts().catch(() => null),
   ]);
   state.authed = !!me.authed;
+  state.isAdmin = !!me.isAdmin;
+  if (me.authed) {
+    state.me = { username: me.username, role: me.role, github: me.github || '' };
+  }
   if (feed) state.posts = feed.posts;
   else {
     const err = document.createElement('p');

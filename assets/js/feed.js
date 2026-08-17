@@ -33,13 +33,31 @@ export function initFeed(h) {
 
 /* ---------- 标签 / 时间工具 ---------- */
 
-// 提取一条动态里的全部 #话题# 标签（去重）
-function postTags(p) {
+// 提取一段文本里的全部 #话题# 标签（去重）
+function textTags(text) {
   const tags = [];
-  for (const m of p.content.matchAll(/#([^#\n]{1,50})#/g)) {
+  for (const m of String(text || '').matchAll(/#([^#\n]{1,50})#/g)) {
     if (!tags.includes(m[1])) tags.push(m[1]);
   }
   return tags;
+}
+
+// 提取一条动态里的全部 #话题# 标签（含评论中的标签）
+function postTags(p) {
+  const tags = textTags(p.content);
+  for (const c of (p.comments || [])) {
+    for (const t of textTags(c.content)) {
+      if (!tags.includes(t)) tags.push(t);
+    }
+  }
+  return tags;
+}
+
+// 动态是否命中关键词：正文或任一评论包含即命中（搜索同样适用于评论）
+function postMatchesQuery(p, q) {
+  if (!q) return true;
+  if (p.content.toLowerCase().includes(q)) return true;
+  return (p.comments || []).some((c) => c.content.toLowerCase().includes(q));
 }
 
 function monthKey(ts) {
@@ -57,7 +75,7 @@ function visiblePosts(state) {
   return state.posts.filter((p) => {
     // 正在编辑的帖子固定显示，避免筛选条件把它过滤掉导致编辑框消失、输入丢失
     if (state.editingId === p.id) return true;
-    if (q && !p.content.toLowerCase().includes(q)) return false;
+    if (q && !postMatchesQuery(p, q)) return false;
     if (state.tag && !postTags(p).includes(state.tag)) return false;
     if (state.month && monthKey(p.createdAt) !== state.month) return false;
     return true;
@@ -199,7 +217,7 @@ function renderFilterBar(state) {
 function postHtml(p, state) {
   if (state.editingId === p.id) return editHtml(p);
 
-  const actions = state.authed ? `
+  const actions = state.isAdmin ? `
     <div class="post-actions">
       <button class="act-btn${p.pinned ? ' pinned' : ''}" type="button" data-pin="${escAttr(p.id)}" title="${p.pinned ? '取消置顶' : '置顶'}">
         <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 17v5"/><path d="M9 10.76V2h6v8.76L17.5 13h-11L9 10.76z"/></svg>
@@ -224,6 +242,97 @@ function postHtml(p, state) {
         ${p.updatedAt ? `<span class="edited-tag" title="${fmtFull(p.updatedAt)}">已编辑</span>` : ''}
         ${actions}
       </div>
+      ${commentsHtml(p, state)}
+    </li>`;
+}
+
+/* ---------- 评论区 ---------- */
+
+// 评论头像 URL：github 主页 + '.png'，兜底用账号名首字母
+function commentAvatar(c) {
+  const g = (c.authorGithub || '').replace(/\/+$/, '');
+  const url = g ? `${g}.png` : null;
+  const name = (c.author || '').trim();
+  const fallback = name ? name.slice(0, 1).toUpperCase() : '?';
+  return { url, fallback };
+}
+
+function commentsHtml(p, state) {
+  const comments = Array.isArray(p.comments) ? p.comments : [];
+  // 管理员不能评论；未登录不能评论；普通账号可评论
+  const canComment = state.authed && !state.isAdmin;
+
+  const list = comments.map((c) => {
+    const editing = state.commentEditingId === `${p.id}:${c.id}`;
+    const isAuthor = state.me && state.me.username === c.author;
+    // 作者本人或管理员可改/删
+    const canManage = isAuthor || state.isAdmin;
+    if (editing) return commentEditHtml(c);
+
+    const { url, fallback } = commentAvatar(c);
+    // 头像：字母兜底 + 图片覆盖，图片加载失败时透明，字母自然显示（避免内联脚本）
+    const avatarHtml = url
+      ? `<span class="comment-avatar-fallback">${esc(fallback)}</span><img class="comment-avatar-img" src="${escAttr(url)}" alt="${escAttr(c.author)}" loading="lazy" />`
+      : `<span class="comment-avatar-fallback">${esc(fallback)}</span>`;
+
+    return `
+      <li class="comment" data-cid="${escAttr(c.id)}">
+        <div class="comment-avatar">${avatarHtml}</div>
+        <div class="comment-body">
+          <div class="comment-head">
+            <span class="comment-author">${esc(c.author)}</span>
+            <time datetime="${new Date(c.createdAt).toISOString()}" title="${fmtFull(c.createdAt)}">${timeAgo(c.createdAt)}</time>
+            ${c.updatedAt ? `<span class="edited-tag" title="${fmtFull(c.updatedAt)}">已编辑</span>` : ''}
+          </div>
+          <div class="comment-content">${fmtContent(c.content, state.query)}</div>
+          ${canManage ? `
+            <div class="comment-actions">
+              <button class="act-btn" type="button" data-cedit="${escAttr(c.id)}" title="编辑">
+                <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>
+                编辑
+              </button>
+              <button class="act-btn danger" type="button" data-cdel="${escAttr(c.id)}" title="删除">
+                <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></svg>
+                删除
+              </button>
+            </div>` : ''}
+        </div>
+      </li>`;
+  }).join('');
+
+  const draft = state.commentDraft[p.id] || '';
+  const composer = canComment ? `
+    <div class="comment-composer">
+      <textarea class="comment-input" placeholder="写下你的评论…（支持 Markdown，500 字以内）" rows="2">${esc(draft)}</textarea>
+      <div class="comment-composer-bar">
+        <span class="char-count">${draft.length}/${SITE.maxCommentLen}</span>
+        <button class="publish-btn small" type="button" data-csend disabled>发表评论</button>
+      </div>
+    </div>` : '';
+
+  return `
+    <div class="comments">
+      <div class="comments-head">
+        <span class="comments-count">${comments.length ? `${comments.length} 条评论` : '暂无评论'}</span>
+      </div>
+      <ul class="comment-list">${list}</ul>
+      ${composer}
+    </div>`;
+}
+
+function commentEditHtml(c) {
+  return `
+    <li class="comment editing" data-cid="${escAttr(c.id)}">
+      <div class="comment-body">
+        <textarea class="comment-edit-area" rows="3">${esc(c.content)}</textarea>
+        <div class="comment-edit-bar">
+          <span class="char-count">${c.content.length}/${SITE.maxCommentLen}</span>
+          <div class="edit-actions">
+            <button class="btn-ghost" type="button" data-ccancel>取消</button>
+            <button class="publish-btn small" type="button" data-csave>保存</button>
+          </div>
+        </div>
+      </div>
     </li>`;
 }
 
@@ -244,16 +353,40 @@ function editHtml(p) {
 function onClick(e) {
   const btn = e.target.closest('button');
   if (!btn) return;
-  const li = btn.closest('li');
-  const id = li?.dataset.id;
+  const postLi = btn.closest('li.post');
+  const id = postLi?.dataset.id;
+
+  // 帖子级操作
   if (btn.dataset.del) handlers.onDelete?.(id);
   else if (btn.dataset.edit) handlers.onEdit?.(id);
   else if (btn.hasAttribute('data-pin')) handlers.onTogglePin?.(id);
   else if (btn.hasAttribute('data-expand')) togglePostExpand(btn);
   else if (btn.hasAttribute('data-cancel')) handlers.onCancelEdit?.();
   else if (btn.hasAttribute('data-save')) {
-    const area = li.querySelector('.edit-area');
+    const area = postLi?.querySelector('.edit-area');
     if (area.value.trim() && area.value.length <= SITE.maxPostLen) handlers.onSaveEdit?.(id, area.value);
+  }
+
+  // 评论操作
+  const commentLi = btn.closest('li.comment');
+  const cid = commentLi?.dataset.cid;
+  if (btn.hasAttribute('data-csend')) {
+    const composer = btn.closest('.comment-composer');
+    const area = composer?.querySelector('.comment-input');
+    if (area && area.value.trim() && area.value.length <= SITE.maxCommentLen) {
+      handlers.onSubmitComment?.(id, area.value.trim());
+    }
+  } else if (btn.hasAttribute('data-cedit')) {
+    handlers.onCommentEdit?.(id, cid);
+  } else if (btn.hasAttribute('data-cdel')) {
+    handlers.onCommentDelete?.(id, cid);
+  } else if (btn.hasAttribute('data-ccancel')) {
+    handlers.onCommentCancelEdit?.();
+  } else if (btn.hasAttribute('data-csave')) {
+    const area = commentLi?.querySelector('.comment-edit-area');
+    if (area && area.value.trim() && area.value.length <= SITE.maxCommentLen) {
+      handlers.onCommentSaveEdit?.(id, cid, area.value.trim());
+    }
   }
 }
 
@@ -278,22 +411,68 @@ function initContentClamp(contentEl) {
 }
 
 function onInput(e) {
+  // 帖子编辑框
   const area = e.target.closest('.edit-area');
-  if (!area) return;
-  const li = area.closest('li');
-  const over = area.value.length > SITE.maxPostLen;
-  li.querySelector('.char-count').textContent = `${area.value.length}/${SITE.maxPostLen}`;
-  li.querySelector('.char-count').classList.toggle('over', over);
-  // 超出字数上限时禁止保存（允许继续输入，不截断）
-  li.querySelector('[data-save]').disabled = !area.value.trim() || over;
+  if (area) {
+    const li = area.closest('li');
+    const over = area.value.length > SITE.maxPostLen;
+    li.querySelector('.char-count').textContent = `${area.value.length}/${SITE.maxPostLen}`;
+    li.querySelector('.char-count').classList.toggle('over', over);
+    // 超出字数上限时禁止保存（允许继续输入，不截断）
+    li.querySelector('[data-save]').disabled = !area.value.trim() || over;
+    return;
+  }
+
+  // 评论编辑框
+  const cArea = e.target.closest('.comment-edit-area');
+  if (cArea) {
+    const li = cArea.closest('li.comment');
+    const over = cArea.value.length > SITE.maxCommentLen;
+    li.querySelector('.char-count').textContent = `${cArea.value.length}/${SITE.maxCommentLen}`;
+    li.querySelector('.char-count').classList.toggle('over', over);
+    li.querySelector('[data-csave]').disabled = !cArea.value.trim() || over;
+    return;
+  }
+
+  // 评论输入框
+  const input = e.target.closest('.comment-input');
+  if (!input) return;
+  const composer = input.closest('.comment-composer');
+  const postLi = composer.closest('li.post');
+  const over = input.value.length > SITE.maxCommentLen;
+  composer.querySelector('.char-count').textContent = `${input.value.length}/${SITE.maxCommentLen}`;
+  composer.querySelector('.char-count').classList.toggle('over', over);
+  composer.querySelector('[data-csend]').disabled = !input.value.trim() || over;
+  // 保存草稿，避免重渲染丢失
+  handlers.onCommentDraft?.(postLi.dataset.id, input.value);
 }
 
 function onKeyDown(e) {
   if (!(e.ctrlKey || e.metaKey) || e.key !== 'Enter') return;
+  // 帖子编辑框
   const area = e.target.closest('.edit-area');
-  if (!area) return;
-  const li = area.closest('li');
-  if (area.value.trim() && area.value.length <= SITE.maxPostLen) handlers.onSaveEdit?.(li.dataset.id, area.value);
+  if (area) {
+    const li = area.closest('li');
+    if (area.value.trim() && area.value.length <= SITE.maxPostLen) handlers.onSaveEdit?.(li.dataset.id, area.value);
+    return;
+  }
+  // 评论编辑框
+  const cArea = e.target.closest('.comment-edit-area');
+  if (cArea) {
+    const li = cArea.closest('li.comment');
+    if (cArea.value.trim() && cArea.value.length <= SITE.maxCommentLen) {
+      handlers.onCommentSaveEdit?.(li.closest('li.post')?.dataset.id, li.dataset.cid, cArea.value.trim());
+    }
+    return;
+  }
+  // 评论输入框
+  const input = e.target.closest('.comment-input');
+  if (input) {
+    const postLi = input.closest('li.post');
+    if (input.value.trim() && input.value.length <= SITE.maxCommentLen) {
+      handlers.onSubmitComment?.(postLi.dataset.id, input.value.trim());
+    }
+  }
 }
 
 function onFilterClick(e) {

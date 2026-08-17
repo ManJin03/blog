@@ -59,14 +59,17 @@
         </svg>
         <span>博客</span>
       </a>
-      <button id="authBtn" class="auth-btn" type="button" title="站长登录后可发布动态">
-        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"
-          stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <rect x="3" y="11" width="18" height="11" rx="2" />
-          <path d="M7 11V7a5 5 0 0 1 10 0v4" />
-        </svg>
-        <span id="authBtnText">登录</span>
-      </button>
+      <div class="auth-area">
+        <button id="authBtn" class="auth-btn" type="button" title="登录">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"
+            stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <rect x="3" y="11" width="18" height="11" rx="2" />
+            <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+          </svg>
+          <span id="authBtnText">登录</span>
+        </button>
+        <button id="userAvatarBtn" class="user-avatar-btn hidden" type="button" title="账号"></button>
+      </div>
     </div>
   </nav>
 
@@ -333,7 +336,7 @@
   </div>
 
   <!-- 登录弹窗 -->
-  <div id="loginModal" class="modal hidden" role="dialog" aria-modal="true" aria-label="站长登录">
+  <div id="loginModal" class="modal hidden" role="dialog" aria-modal="true" aria-label="登录">
     <div class="modal-mask" id="modalMask"></div>
     <div class="modal-card">
       <button id="modalClose" class="modal-close" type="button" aria-label="关闭">
@@ -342,13 +345,41 @@
           <path d="M18 6 6 18M6 6l12 12" />
         </svg>
       </button>
-      <h3>站长登录</h3>
-      <p class="modal-tip">仅站长本人可以发布、修改和删除动态</p>
+      <h3>登录</h3>
+      <p class="modal-tip">使用账号与密码登录</p>
       <form id="loginForm">
-        <input id="passwordInput" type="password" placeholder="请输入密码" autocomplete="current-password" required />
+        <input id="usernameInput" type="text" placeholder="账号" autocomplete="username" required />
+        <input id="passwordInput" type="password" placeholder="密码" autocomplete="current-password" required />
         <p id="loginError" class="login-error hidden"></p>
         <button id="loginBtn" class="publish-btn full" type="submit">登录</button>
       </form>
+    </div>
+  </div>
+
+  <!-- 账号管理弹窗（仅管理员） -->
+  <div id="usersModal" class="modal hidden" role="dialog" aria-modal="true" aria-label="账号管理">
+    <div class="modal-mask" id="usersMask"></div>
+    <div class="modal-card users-card">
+      <button id="usersClose" class="modal-close" type="button" aria-label="关闭">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"
+          stroke-linecap="round">
+          <path d="M18 6 6 18M6 6l12 12" />
+        </svg>
+      </button>
+      <h3>账号管理</h3>
+      <p class="modal-tip">为他人创建账号、修改主页链接或重置密码</p>
+      <form id="userForm" class="user-form">
+        <input id="newUsername" type="text" placeholder="账号名（字母/数字/_-）" autocomplete="off" />
+        <input id="newPassword" type="password" placeholder="密码（至少 6 位）" autocomplete="new-password" />
+        <input id="newGithub" type="text" placeholder="GitHub 主页链接（可选）" autocomplete="off" />
+        <div class="user-form-row">
+          <label class="role-label"><input type="radio" name="newRole" value="user" checked />普通账号</label>
+          <label class="role-label"><input type="radio" name="newRole" value="admin" />管理员</label>
+        </div>
+        <p id="userFormError" class="login-error hidden"></p>
+        <button id="createUserBtn" class="publish-btn full" type="submit">创建账号</button>
+      </form>
+      <ul id="usersList" class="users-list"></ul>
     </div>
   </div>
 

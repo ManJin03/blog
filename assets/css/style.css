@@ -207,6 +207,38 @@ body {
 
 .auth-btn:hover { color: var(--accent); border-color: var(--accent); }
 
+/* 右上角登录区 + 用户头像 */
+.auth-area { display: flex; align-items: center; gap: 8px; }
+
+.user-avatar-btn {
+  flex: none;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  background: var(--card);
+  overflow: hidden;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.user-avatar-btn:hover { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(47, 107, 237, 0.12); }
+.user-avatar-img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block; }
+.user-avatar-fallback {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--accent-grad);
+  color: #fff;
+  font-weight: 700;
+  font-size: 14px;
+}
+
 /* ---------- 三栏布局 ---------- */
 .layout {
   max-width: 1320px;
@@ -1353,7 +1385,282 @@ mark { background: var(--mark); color: inherit; border-radius: 2px; padding: 0 1
 
 .login-error { margin: 8px 0 0; font-size: 13px; color: var(--danger); }
 
+#loginForm input + input { margin-top: 10px; }
+
 #loginForm .publish-btn { margin-top: 14px; }
+
+/* ---------- 评论区 ---------- */
+.comments {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+
+.comments-head { margin-bottom: 10px; }
+
+.comments-count { font-size: 12px; color: var(--muted); }
+
+.comment-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 12px; }
+
+.comment {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.comment-avatar {
+  flex: none;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  overflow: hidden;
+  background: var(--hover);
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.comment-avatar-img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.comment-avatar-fallback {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--accent-grad);
+  color: #fff;
+  font-weight: 700;
+  font-size: 13px;
+}
+
+.comment-body { flex: 1; min-width: 0; }
+
+.comment-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  font-size: 12px;
+  color: var(--muted);
+}
+.comment-author { font-weight: 600; color: var(--text); font-size: 13px; }
+.comment-head time { font-variant-numeric: tabular-nums; }
+
+.comment-content {
+  margin-top: 3px;
+  font-size: 14px;
+  word-break: break-word;
+}
+.comment-content p { margin: 0 0 6px; }
+.comment-content p:last-child { margin-bottom: 0; }
+.comment-content a { color: var(--accent); text-decoration: none; }
+.comment-content a:hover { text-decoration: underline; }
+.comment-content .topic { color: var(--accent); }
+.comment-content code {
+  font-family: "SF Mono", Consolas, "JetBrains Mono", "Courier New", monospace;
+  font-size: 0.9em;
+  background: var(--hover);
+  border-radius: 4px;
+  padding: 1px 5px;
+}
+.comment-content pre {
+  margin: 6px 0;
+  padding: 8px 10px;
+  background: var(--hover);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow-x: auto;
+  font-size: 13px;
+  line-height: 1.55;
+}
+.comment-content pre code { background: none; border: none; padding: 0; font-size: inherit; }
+.comment-content blockquote {
+  margin: 6px 0;
+  padding: 4px 10px;
+  border-left: 3px solid var(--accent);
+  border-radius: 0 6px 6px 0;
+  background: var(--hover);
+  color: var(--muted);
+}
+.comment-content ul,
+.comment-content ol { margin: 4px 0; padding-left: 20px; }
+.comment-content del { color: var(--muted); }
+
+.comment-actions { margin-top: 4px; display: flex; gap: 2px; }
+
+/* 评论输入框 */
+.comment-composer { margin-top: 12px; }
+
+.comment-input,
+.comment-edit-area {
+  width: 100%;
+  font: inherit;
+  font-size: 14px;
+  color: var(--text);
+  background: var(--hover);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 9px 12px;
+  resize: vertical;
+  outline: none;
+  min-height: 56px;
+  transition: border-color 0.15s;
+}
+.comment-input:focus,
+.comment-edit-area:focus { border-color: var(--accent); }
+.comment-input::placeholder,
+.comment-edit-area::placeholder { color: var(--muted); }
+
+.comment-composer-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 6px;
+}
+
+.comment-edit-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 6px;
+}
+
+/* ---------- 账号管理弹窗 ---------- */
+.users-card {
+  max-width: 440px;
+  max-height: 86vh;
+  overflow-y: auto;
+}
+
+.user-form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 4px;
+}
+
+.user-form input {
+  width: 100%;
+  font: inherit;
+  font-size: 14px;
+  color: var(--text);
+  background: var(--hover);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 9px 12px;
+  outline: none;
+  transition: border-color 0.15s;
+}
+.user-form input:focus { border-color: var(--accent); }
+
+.user-form-row { display: flex; gap: 16px; align-items: center; }
+
+.role-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 13px;
+  color: var(--muted);
+}
+.role-label input { width: auto; }
+
+.users-list {
+  list-style: none;
+  margin: 16px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.user-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 12px;
+  background: var(--hover);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+
+.user-item-main { display: flex; align-items: center; gap: 10px; min-width: 0; }
+
+.user-item-avatar {
+  flex: none;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--accent-grad);
+  color: #fff;
+  font-weight: 700;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.user-item-info { min-width: 0; }
+.user-item-name { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 14px; font-weight: 600; }
+
+.user-badge {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--muted);
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 1px 8px;
+}
+.user-badge.admin { color: var(--accent); border-color: rgba(47, 107, 237, 0.4); }
+
+.user-item-github {
+  font-size: 12px;
+  color: var(--muted);
+  text-decoration: none;
+  font-weight: 400;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 160px;
+}
+.user-item-github:hover { color: var(--accent); text-decoration: underline; }
+
+.user-item-actions { display: flex; gap: 2px; flex: none; }
+
+.users-empty { text-align: center; color: var(--muted); font-size: 13px; padding: 12px 0; }
+
+.user-edit-card {
+  padding: 12px;
+  background: var(--hover);
+  border: 1px solid var(--accent);
+  border-radius: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.user-edit-title { margin: 0; font-size: 13px; color: var(--text); }
+.user-edit-card input[type="text"],
+.user-edit-card input[type="password"] {
+  width: 100%;
+  font: inherit;
+  font-size: 14px;
+  color: var(--text);
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 10px;
+  outline: none;
+}
+.user-edit-card input:focus { border-color: var(--accent); }
+.user-edit-actions { display: flex; gap: 8px; align-items: center; justify-content: flex-end; }
 
 /* ---------- 自定义消息弹窗（替代原生 alert/confirm，不影响自定义光标） ---------- */
 .toast-stack {
@@ -1492,4 +1799,8 @@ mark { background: var(--mark); color: inherit; border-radius: 2px; padding: 0 1
   .nav-search { order: 5; flex-basis: 100%; max-width: none; }
   .profile-stats { flex-wrap: wrap; gap: 8px; }
   .col-right { flex-direction: column; }
+  .user-item { flex-direction: column; align-items: flex-start; }
+  .user-item-actions { align-self: flex-end; }
+  .comment { gap: 8px; }
+  .comment-avatar { width: 26px; height: 26px; }
 }

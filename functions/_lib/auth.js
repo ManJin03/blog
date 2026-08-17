@@ -1,4 +1,5 @@
 // 会话签发与校验：HMAC-SHA256 签名的时间戳令牌，存放在 HttpOnly Cookie 中
+// 令牌携带用户身份（username + role），用于区分管理员与普通账号。
 const COOKIE_NAME = 'mj_session';
 export const SESSION_MAX_AGE = 7 * 24 * 60 * 60; // 7 天（秒）
 
@@ -6,6 +7,14 @@ function toB64Url(bytes) {
   let bin = '';
   for (const b of bytes) bin += String.fromCharCode(b);
   return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+
+function fromB64Url(s) {
+  const pad = '='.repeat((4 - (s.length % 4)) % 4);
+  const bin = atob(s.replace(/-/g, '+').replace(/_/g, '/') + pad);
+  const bytes = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+  return bytes;
 }
 
 async function hmac(secret, message) {
@@ -39,23 +48,41 @@ function parseCookie(header, name) {
   return null;
 }
 
-export async function createSessionToken(env) {
-  const expires = Date.now() + SESSION_MAX_AGE * 1000;
-  const sig = await hmac(env.SESSION_SECRET, String(expires));
-  return `${expires}.${sig}`;
+// 身份 payload：{ username, role } → base64url 字符串（避免 username 含分隔符导致解析歧义）
+function encodePayload(user) {
+  return toB64Url(new TextEncoder().encode(JSON.stringify({ username: user.username, role: user.role })));
 }
 
+function decodePayload(s) {
+  try {
+    const json = new TextDecoder().decode(fromB64Url(s));
+    const obj = JSON.parse(json);
+    if (typeof obj.username !== 'string' || typeof obj.role !== 'string') return null;
+    return obj;
+  } catch {
+    return null;
+  }
+}
+
+export async function createSessionToken(env, user) {
+  const expires = Date.now() + SESSION_MAX_AGE * 1000;
+  const payload = encodePayload(user);
+  const sig = await hmac(env.SESSION_SECRET, `${expires}.${payload}`);
+  return `${expires}.${payload}.${sig}`;
+}
+
+// 校验会话，成功返回 { username, role }，失败返回 null
 export async function verifySession(request, env) {
-  if (!env.SESSION_SECRET) return false;
+  if (!env.SESSION_SECRET) return null;
   const token = parseCookie(request.headers.get('Cookie'), COOKIE_NAME);
-  if (!token) return false;
-  const dot = token.indexOf('.');
-  if (dot === -1) return false;
-  const expires = token.slice(0, dot);
-  const sig = token.slice(dot + 1);
-  if (!/^\d{1,15}$/.test(expires) || Number(expires) < Date.now()) return false;
-  const expected = await hmac(env.SESSION_SECRET, expires);
-  return safeEqual(sig, expected);
+  if (!token) return null;
+  const parts = token.split('.');
+  if (parts.length !== 3) return null;
+  const [expires, payload, sig] = parts;
+  if (!/^\d{1,15}$/.test(expires) || Number(expires) < Date.now()) return null;
+  const expected = await hmac(env.SESSION_SECRET, `${expires}.${payload}`);
+  if (!safeEqual(sig, expected)) return null;
+  return decodePayload(payload);
 }
 
 // 本地 http 调试时不加 Secure，否则浏览器会拒收 Cookie

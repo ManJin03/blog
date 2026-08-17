@@ -30,19 +30,35 @@ async function ensureIndex(env) {
   return index;
 }
 
+// 读取单个帖子完整对象，不存在返回 null
+export async function readPost(env, id) {
+  return env.KV.get(postKey(id), { type: 'json' });
+}
+
+// 写入单个帖子完整对象
+export async function writePost(env, post) {
+  await env.KV.put(postKey(post.id), JSON.stringify(post));
+}
+
 // 读取全部帖子（按索引顺序，各帖并行读取）
+// 迁移：旧帖无 comments 字段时补为 []，保证评论功能对存量数据无感可用
 export async function readPosts(env) {
   const index = await ensureIndex(env);
   if (!index.length) return [];
   const posts = await Promise.all(
     index.map(async ({ id }) => env.KV.get(postKey(id), { type: 'json' })),
   );
-  return posts.filter(Boolean);
+  const list = posts.filter(Boolean);
+  for (const p of list) {
+    if (!Array.isArray(p.comments)) p.comments = [];
+  }
+  return list;
 }
 
 // 新增帖子：索引头部插入元信息，完整内容写入独立键
 export async function addPost(env, post) {
   const index = await ensureIndex(env);
+  if (!Array.isArray(post.comments)) post.comments = [];
   index.unshift(metaOf(post));
   await Promise.all([
     env.KV.put(INDEX_KEY, JSON.stringify(index)),

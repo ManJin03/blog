@@ -34,6 +34,8 @@ export const SITE = {
   footer: '© 2026 ManJin · Powered by Cloudflare Pages',
   // 单条动态字数上限，需与 functions/_lib/posts.js 的 MAX_LEN 保持一致
   maxPostLen: 1000,
+  // 单条评论字数上限，需与 functions/_lib/comments.js 的 MAX_COMMENT_LEN 保持一致
+  maxCommentLen: 500,
   // 友情链接（显示在个人资料底部）
   friendLink: {
     name: 'Young man 的个人主页',
