@@ -40,6 +40,8 @@ export const SITE = {
   friendLink: {
     name: 'Young man 的个人主页',
     url: 'https://homepage-afl.pages.dev/',
+    name: 'Ember 的 space',
+    url: 'https://ember-space.pages.dev/',
   },
   // 技术博客最新一篇文章（展示在"作品展示"与"关于我"之间；为空则显示"暂无"）
   latestPost: {
