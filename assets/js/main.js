@@ -717,13 +717,22 @@ function setupStatus() {
 /* ---------- 友情链接（个人资料底部） ---------- */
 function setupFriendLink() {
   const box = document.getElementById('friendLink');
-  const val = document.getElementById('friendLinkVal');
-  if (!box || !val) return;
-  const f = SITE.friendLink;
-  if (!f || !f.url) { box.classList.add('hidden'); return; }
-  val.textContent = f.name || f.url;
-  val.href = f.url;
-  val.title = f.url;
+  const container = document.getElementById('friendLinkVal');
+  if (!box || !container) return;
+  const list = SITE.friendLink;
+  if (!Array.isArray(list) || list.length === 0) { box.classList.add('hidden'); return; }
+  container.innerHTML = '';
+  list.forEach((f) => {
+    if (!f || !f.url) return;
+    const a = document.createElement('a');
+    a.className = 'friend-val';
+    a.href = f.url;
+    a.target = '_blank';
+    a.rel = 'noopener noreferrer';
+    a.textContent = f.name || f.url;
+    a.title = f.url;
+    container.appendChild(a);
+  });
 }
 
 /* ---------- 最新文章（优先拉取技术博客实时文章；接口失败回退本地配置） ---------- */

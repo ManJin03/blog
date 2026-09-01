@@ -430,12 +430,16 @@ body {
   color: var(--muted);
   letter-spacing: 0.5px;
 }
+.friend-links {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 10px;
+  min-width: 0;
+}
 .friend-val {
   color: var(--accent);
   text-decoration: none;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 .friend-val:hover { text-decoration: underline; }
 
