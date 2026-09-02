@@ -328,8 +328,9 @@ function commentItemHtml(p, c, state) {
 
 function commentsHtml(p, state) {
   const comments = Array.isArray(p.comments) ? p.comments : [];
-  // 管理员不能评论；普通账号可评论；未登录给出 GitHub 登录入口（点赞游客本就可用）
-  const canComment = state.authed && !state.isAdmin;
+  // 普通账号可评论；GitHub 映射管理员（带 GitHub 身份）同样可评论；
+  // 纯密码管理员（无 GitHub 身份）不可评论；未登录给出 GitHub 登录入口
+  const canComment = state.authed && (!state.isAdmin || !!(state.me && state.me.github));
 
   // 评论区内显示全部评论（整体显示/隐藏由气泡图标控制）
   const list = comments.map((c) => commentItemHtml(p, c, state)).join('');

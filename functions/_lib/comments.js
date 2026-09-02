@@ -22,7 +22,7 @@ function publicComment(c) {
   return { id: c.id, content: c.content, author: c.author, authorGithub: c.authorGithub || '', createdAt: c.createdAt, updatedAt: c.updatedAt || null };
 }
 
-// 新增评论：作者只能是普通账号（管理员禁止评论，由路由层约束）
+// 新增评论：作者为普通账号或 GitHub 映射管理员（纯密码管理员禁止评论，由路由层约束）
 export async function addComment(env, postId, { content, author, authorGithub }) {
   const parsed = parseComment({ content });
   if (parsed.error) return { error: parsed.error, status: 400 };
