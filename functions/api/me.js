@@ -1,6 +1,6 @@
 // GET /api/me —— 查询当前登录状态与身份
 import { json } from '../_lib/http.js';
-import { getUser, isAdminUsername } from '../_lib/users.js';
+import { getUser, isAdminIdentity, isGithubAdmin } from '../_lib/users.js';
 
 export async function onRequestGet({ env, data }) {
   if (!data.authed || !data.user) {
@@ -8,12 +8,15 @@ export async function onRequestGet({ env, data }) {
   }
 
   // 管理员：身份由环境变量决定，不落 KV（同时校验会话角色，防止普通账号冒充）
-  if (data.user.role === 'admin' && isAdminUsername(env, data.user.username)) {
+  if (data.user.role === 'admin' && isAdminIdentity(env, data.user.username)) {
+    // GitHub 映射管理员（命中 ADMIN_GITHUB_LOGIN）：附上主页链接，前端据此显示 GitHub 头像；
+    // 密码管理员（ADMIN_USERNAME 登录）无 GitHub 身份，保持 github 为空。
+    const isGhAdmin = isGithubAdmin(env, data.user.username);
     return json({
       authed: true,
       username: data.user.username,
       role: 'admin',
-      github: '',
+      github: isGhAdmin ? `https://github.com/${data.user.username}` : '',
       isAdmin: true,
     });
   }

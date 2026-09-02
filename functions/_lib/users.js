@@ -1,8 +1,10 @@
 // 账号数据访问与密码哈希：供 /api/users、/api/login 等路由共享
 //
-// 设计：系统只允许存在【一个】管理员账号（主管理员），其账号名与密码完全由
-// 环境变量 ADMIN_USERNAME / ADMIN_PASSWORD 决定（未设置则回退默认 admin / admin123456），
-// 管理员不写入 KV，登录时直接用环境变量校验；修改管理员密码只能通过修改环境变量实现。
+// 设计：系统只允许存在【一个】管理员账号（主管理员），其身份完全由环境变量决定：
+//   - ADMIN_USERNAME / ADMIN_PASSWORD —— 密码登录的账号名与密码（未设置则回退默认 admin / admin123456）；
+//   - ADMIN_GITHUB_LOGIN（可选）—— 管理员绑定的 GitHub 用户名，命中后该 GitHub 账号
+//     走 OAuth 登录即自动成为管理员（签发 role = 'admin' 会话）。
+// 管理员不写入 KV，登录时直接用环境变量校验；修改管理员身份/密码只能通过修改环境变量实现。
 //
 // 普通账号（role = 'user'）登录已改为 GitHub OAuth（GET /api/login/github）：
 //   - 游客首次 GitHub 登录自动建号（findUserByGithub / bindOrCreateGithubUser），无需密码；
@@ -86,9 +88,29 @@ export function adminPublic(env) {
   };
 }
 
-// 判断某账号名是否为管理员
+// 判断某账号名是否为密码管理员（仅与 ADMIN_USERNAME 比较，用于保护 KV 中普通账号操作）
 export function isAdminUsername(env, username) {
   return username === adminUsername(env);
+}
+
+// 管理员绑定的 GitHub 用户名：ADMIN_GITHUB_LOGIN（可选，未设置返回空字符串）
+export function adminGithubLogin(env) {
+  return String((env && env.ADMIN_GITHUB_LOGIN) || '').trim();
+}
+
+// GitHub 用户名是否命中管理员映射：与 ADMIN_GITHUB_LOGIN 忽略大小写比较
+// （GitHub 用户名在登录/识别时不区分大小写，env 中可填任意大小写）
+export function isGithubAdmin(env, githubLogin) {
+  const expected = adminGithubLogin(env).toLowerCase();
+  return !!expected && String(githubLogin || '').trim().toLowerCase() === expected;
+}
+
+// 会话中的账号名是否属于管理员身份：密码管理员 ADMIN_USERNAME，或 GitHub 映射管理员。
+// 供中间件 / /api/me 在会话角色为 admin 时二次校验，防止普通账号冒充管理员。
+export function isAdminIdentity(env, username) {
+  const u = String(username || '');
+  if (!u) return false;
+  return u === adminUsername(env) || u.toLowerCase() === adminGithubLogin(env).toLowerCase();
 }
 
 // 校验管理员登录（恒定时间比较，避免时序侧信道）
@@ -174,8 +196,15 @@ export function validateGithub(github) {
 // 新流程创建的账号不设密码（登录凭据即 GitHub）。
 export async function createUser(env, { username, password, github }) {
   const index = await ensureIndex(env);
-  // 禁止与管理员账号重名
-  if (isAdminUsername(env, username)) return { error: '该用户名已被保留' };
+  // 禁止与管理员身份重名：密码管理员（精确匹配）与 GitHub 映射管理员（忽略大小写），
+  // 避免建立注定无法正常登录的重复普通账号。
+  const ghAdmin = adminGithubLogin(env);
+  if (
+    isAdminUsername(env, username) ||
+    (ghAdmin && String(username || '').toLowerCase() === ghAdmin.toLowerCase())
+  ) {
+    return { error: '该用户名已被保留' };
+  }
   if (index.some((u) => u.username === username)) return { error: '该用户名已存在' };
   const user = {
     username,
