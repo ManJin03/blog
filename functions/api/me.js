@@ -7,8 +7,8 @@ export async function onRequestGet({ env, data }) {
     return json({ authed: false });
   }
 
-  // 管理员：身份由环境变量决定，不落 KV
-  if (isAdminUsername(env, data.user.username)) {
+  // 管理员：身份由环境变量决定，不落 KV（同时校验会话角色，防止普通账号冒充）
+  if (data.user.role === 'admin' && isAdminUsername(env, data.user.username)) {
     return json({
       authed: true,
       username: data.user.username,

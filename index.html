@@ -355,10 +355,22 @@
         </svg>
       </button>
       <h3>登录</h3>
-      <p class="modal-tip">使用账号与密码登录</p>
-      <form id="loginForm">
-        <input id="usernameInput" type="text" placeholder="账号" autocomplete="username" required />
-        <input id="passwordInput" type="password" placeholder="密码" autocomplete="current-password" required />
+      <p class="modal-tip">普通账号使用 GitHub 登录，登录后可点赞、评论</p>
+
+      <a id="githubLoginBtn" class="github-login-btn" href="/api/login/github">
+        <svg viewBox="0 0 16 16" width="16" height="16" fill="currentColor" aria-hidden="true">
+          <path
+            d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27s1.36.09 2 .27c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8z" />
+        </svg>
+        <span>使用 GitHub 登录</span>
+      </a>
+
+      <div class="login-divider" role="separator"><span>或</span></div>
+
+      <button id="adminLoginToggle" class="admin-login-toggle" type="button" aria-expanded="false">管理员密码登录</button>
+      <form id="loginForm" class="hidden">
+        <input id="usernameInput" type="text" placeholder="管理员账号" autocomplete="username" />
+        <input id="passwordInput" type="password" placeholder="管理员密码" autocomplete="current-password" />
         <p id="loginError" class="login-error hidden"></p>
         <button id="loginBtn" class="publish-btn full" type="submit">登录</button>
       </form>
@@ -376,11 +388,10 @@
         </svg>
       </button>
       <h3>账号管理</h3>
-      <p class="modal-tip">为他人创建账号、修改主页链接或重置密码</p>
+      <p class="modal-tip">普通账号统一使用 GitHub 登录：填写对方的 GitHub 主页链接，对方登录时自动关联到该账号</p>
       <form id="userForm" class="user-form">
         <input id="newUsername" type="text" placeholder="账号名（字母/数字/_-）" autocomplete="off" />
-        <input id="newPassword" type="password" placeholder="密码（至少 6 位）" autocomplete="new-password" />
-        <input id="newGithub" type="text" placeholder="GitHub 主页链接（可选）" autocomplete="off" />
+        <input id="newGithub" type="text" placeholder="GitHub 主页链接（推荐填写，用于关联登录）" autocomplete="off" />
         <p id="userFormError" class="login-error hidden"></p>
         <button id="createUserBtn" class="publish-btn full" type="submit">创建普通账号</button>
       </form>

@@ -9,13 +9,14 @@
 - 顶部导航栏：站名、Vercount 访客计数、动态搜索、GitHub / 技术博客链接、右上角登录按钮 / 用户头像
 - 个人资料卡片：ManJin · 学生 · 西安交通大学大三在读 · C/C++ / Linux
 - 微博式动态流：发帖（1000 字以内，支持 Markdown、`#话题#` 高亮）、**编辑**、删除、置顶
-- 多账号系统：单一管理员（账号名/密码由环境变量决定，默认 `admin`/`admin123456`）+ 普通账号（密码 PBKDF2 哈希存储，不可查询只能重置）；普通账号不可自行注册，仅管理员在后台创建/增删改查
-- 评论系统：评论收进时间行右侧的气泡图标，点击展开/收起全部评论（每帖独立）；每帖可评论（500 字以内，支持 Markdown 与 `#话题#`），仅登录的普通账号可评论，管理员不可评论；作者本人与管理员可改/删评论；评论同样支持搜索与标签筛选
+- GitHub 登录：普通账号统一使用 GitHub OAuth 登录（登录弹窗主体为"使用 GitHub 登录"，默认折叠的管理员表单只接受管理员账号密码）；游客首次 GitHub 登录即自动创建普通账号，登录后可点赞、评论；管理员后台预建的账号会按 GitHub 用户名或主页链接自动关联，无需再设密码
+- 多账号系统：单一管理员（账号名/密码由环境变量决定，默认 `admin`/`admin123456`）+ 普通账号（无密码，登录凭据即 GitHub 身份）；管理员可对普通账号增删查改（创建/编辑时填账号名 + GitHub 主页链接）
+- 评论系统：评论收进时间行右侧的气泡图标，点击展开/收起全部评论（每帖独立）；每帖可评论（500 字以内，支持 Markdown 与 `#话题#`），仅登录的普通账号可评论，管理员不可评论；未登录游客在评论区可直接点"使用 GitHub 登录"入口建号评论；作者本人与管理员可改/删评论；评论同样支持搜索与标签筛选
 - 点赞：每帖点赞图标（爱心），人人可点（无需登录）、可再次点击取消；陌生人点赞记录匿名设备标识，登录账号后点赞绑定到账号；仅记录点赞数，不记录点赞者身份
 - 作品展示：以最近提交（push）时间为参考排序，网格自适应窗口宽度，展示全部本人仓库
 - 最新文章：首页实时拉取技术博客（tech-manjin.pages.dev）RSS 最新一篇，接口不可用时回退到本地配置
 - 检索：关键词搜索（命中高亮，覆盖正文与评论）+ 标签筛选（`#话题#` 自动汇总为标签）+ 时间筛选（按月），可组合使用
-- 身份验证：HMAC 签名的 HttpOnly Cookie 会话（7 天有效），令牌携带账号身份与角色，未登录只能浏览
+- 身份验证：普通账号经 GitHub OAuth 登录（首次自动建号），管理员走环境变量账号密码；会话为 HMAC 签名的 HttpOnly Cookie（7 天有效），令牌携带账号身份与角色，未登录只能浏览
 
 ## 目录结构
 
@@ -33,13 +34,16 @@
 │   ├── _lib/                   # 共享模块（不生成路由）
 │   │   ├── http.js             # JSON 响应工具
 │   │   ├── auth.js             # 会话签发与校验（HMAC Cookie，携带账号身份）
-│   │   ├── users.js            # 账号数据访问 + PBKDF2 密码哈希 + 管理员初始化
+│   │   ├── github-oauth.js     # GitHub OAuth：授权地址 / 换 token / 拉取身份 / state Cookie
+│   │   ├── users.js            # 账号数据访问 + GitHub 账号匹配/自动创建 + 管理员初始化
 │   │   ├── posts.js            # 帖子数据访问与内容校验（KV 结构见下文）
 │   │   └── comments.js         # 评论数据访问与内容校验（内嵌于帖子）
 │   └── api/                    # /api/* 接口
 │       ├── _middleware.js      # 会话校验中间件（解析 user/authed/isAdmin）
 │       ├── me.js               # GET     /api/me         登录状态与身份
-│       ├── login.js            # POST    /api/login      账号密码登录 / DELETE 退出
+│       ├── login.js            # POST    /api/login      管理员账号密码登录 / DELETE 退出
+│       ├── login/github.js     # GET     /api/login/github           发起 GitHub 授权
+│       ├── login/github/callback.js # GET /api/login/github/callback GitHub 回调（关联/建号+签发会话）
 │       ├── users.js            # GET/POST /api/users     账号列表 / 创建（管理员）
 │       ├── users/[username].js # PATCH/DELETE /api/users/:username  改/删账号（管理员）
 │       ├── latest-post.js      # GET     /api/latest-post 技术博客最新文章（代理 RSS）
@@ -63,7 +67,9 @@
 npx wrangler pages dev .
 ```
 
-打开 <http://localhost:8880> ，本地账号密码在 `.dev.vars` 中（默认 `admin` / `admin123456`），本地 KV 数据保存在 `.wrangler/` 目录。端口可在 `wrangler.toml` 的 `[dev]` 表中修改，也可用 `--port` 参数临时覆盖。
+打开 <http://localhost:8880> ，管理员账号密码在 `.dev.vars` 中（默认 `admin` / `admin123456`），本地 KV 数据保存在 `.wrangler/` 目录。端口可在 `wrangler.toml` 的 `[dev]` 表中修改，也可用 `--port` 参数临时覆盖。
+
+本地调试 GitHub 登录：`.dev.vars` 中填入 `GITHUB_CLIENT_ID` / `GITHUB_CLIENT_SECRET`（本地与线上各用一个 OAuth App，回调地址不同——GitHub 一个 OAuth App 只能登记一个回调地址；本地 App 的回调地址填 `http://localhost:8880/api/login/github/callback`）。未配置时点击"使用 GitHub 登录"会得到提示页而不是跳转。
 
 > 注：Vercount 统计脚本只在 `http(s)://` 页面下计数，本地 `http://127.0.0.1` 会计入 `127.0.0.1` 域名，不影响线上数据。
 
@@ -79,9 +85,9 @@ post:{id}            # 每帖独立键：JSON 存完整帖子（含评论）
                      # comments 每项：{ id, content, author, authorGithub, createdAt, updatedAt }
 
 users:index          # 索引键：JSON 数组，存每个普通账号公开信息（不含密码）
-                     # [{ username, github, role, createdAt }, ...]
-user:{username}      # 每个普通账号独立键：JSON 存完整信息（含密码哈希与盐）
-                     # { username, passwordHash, passwordSalt, github, role, createdAt }
+                     # [{ username, github, createdAt }, ...]
+user:{username}      # 每个普通账号独立键：JSON 存完整信息（GitHub 登录建号时无密码字段）
+                     # { username, github?, createdAt, passwordHash?/passwordSalt?（仅历史账号） }
 
 # 管理员账号不写入 KV：系统只允许一个管理员，账号名/密码由环境变量
 # ADMIN_USERNAME / ADMIN_PASSWORD 决定（默认 admin / admin123456）
@@ -90,8 +96,8 @@ user:{username}      # 每个普通账号独立键：JSON 存完整信息（含�
 - 索引只存元信息，帖子/账号内容按 id/username 独立存放，更新/删除单条无需整数组读写
 - 旧版"全部帖子存于单个 `posts` 键"的数据会在首次读取时**自动迁移**到新结构并删除旧键，无需手动处理
 - 旧帖无 `comments` 字段时，读取时自动补为 `[]`，评论功能对存量数据无感可用
-- 管理员账号：系统**只允许一个管理员**，其账号名/密码由环境变量 `ADMIN_USERNAME` / `ADMIN_PASSWORD` 决定（未设置则默认 `admin` / `admin123456`）。管理员**不写入 KV**，登录时直接校验环境变量；管理员密码只能通过修改环境变量来变更
-- KV 中只存储普通账号，管理员可对普通账号增删查改（含重置密码），普通账号密码使用 PBKDF2-SHA256（10 万次迭代）+ 随机盐哈希存储，**密码不可查询、只能重置**
+- 管理员账号：系统**只允许一个管理员**，其账号名/密码由环境变量 `ADMIN_USERNAME` / `ADMIN_PASSWORD` 决定（未设置则默认 `admin` / `admin123456`）。管理员**不写入 KV**，登录时直接校验环境变量；管理员密码只能通过修改环境变量来变更。GitHub 登录一律按普通账号处理：GitHub 用户名与管理员账号同名时会拒绝并提示走管理员密码登录
+- KV 中只存储普通账号，管理员可对普通账号增删查改。普通账号登录为 GitHub OAuth：登录时按"账号名与 GitHub 用户名相同（忽略大小写）"或"账号绑定的 GitHub 主页与该用户名匹配"两种规则关联已有账号，找不到则**以 GitHub 用户名自动创建**（无密码字段）；历史账号的 PBKDF2 密码字段仅作兼容保留，不再用于登录
 - 本地开发时数据位于 `.wrangler/` 目录（`miniflare` 模拟 KV）
 
 ## 部署到 Cloudflare Pages
@@ -110,19 +116,25 @@ user:{username}      # 每个普通账号独立键：JSON 存完整信息（含�
    - `ADMIN_PASSWORD`：管理员账号密码（不设置则默认 `admin123456`）
    - `ADMIN_USERNAME`：管理员账号名（可选；不设置则默认 `admin`）。管理员密码只能通过修改此环境变量来变更
    - `SESSION_SECRET`：会话签名密钥，可用 `openssl rand -hex 32` 生成
+   - `GITHUB_CLIENT_ID` / `GITHUB_CLIENT_SECRET`：GitHub OAuth App 凭据（不配置则"使用 GitHub 登录"不可用，详见下方）
+   - `GITHUB_REDIRECT_URI`：（可选）OAuth 回调地址，缺省自动取当前域名下的 `/api/login/github/callback`，需与 OAuth App 登记的回调地址完全一致
 
-5. **部署并使用**：部署完成后打开 `https://<你的域名>`，点击导航栏右侧"登录"输入账号密码。管理员可发布 / 编辑 / 删除动态、置顶，并在登录后点击右上角头像进入"账号管理"页对普通账号增删改查（重置密码）。普通账号登录后可评论、修改删除自己的评论，右上角显示其头像。未登录只能浏览和搜索。
+   > **GitHub OAuth App 配置**：在 GitHub → Settings → Developer settings → OAuth Apps → New OAuth App 中创建，Homepage URL 填 `https://<你的域名>`，Authorization callback URL 填 `https://<你的域名>/api/login/github/callback`；生成 Client secret 后填入上面的环境变量。一个 OAuth App 只能登记一个回调地址，因此**本地与线上各用一个 OAuth App**：本地 App 的回调地址填 `http://localhost:8880/api/login/github/callback`。
+
+5. **部署并使用**：部署完成后打开 `https://<你的域名>`。游客/普通账号点击导航栏右侧"登录"，点"使用 GitHub 登录"即可建号登录（首次自动创建普通账号）；管理员展开"管理员密码登录"输入环境变量账号密码。管理员可发布 / 编辑 / 删除动态、置顶，点击右上角头像进入"账号管理"页对普通账号增删查改（创建/编辑时填账号名 + GitHub 主页链接，对方 GitHub 登录时自动关联）。普通账号登录后可评论、修改删除自己的评论，右上角显示其头像。未登录只能浏览、搜索与匿名点赞。
 
 ## 接口说明
 
 | 方法 | 路径 | 鉴权 | 说明 |
 | --- | --- | --- | --- |
 | GET | /api/me | - | 当前登录状态与身份（username / role / github / isAdmin） |
-| POST | /api/login | - | 账号密码登录（body: `{"username":"...","password":"..."}`） |
+| GET | /api/login/github | - | 发起 GitHub OAuth（302 跳转 GitHub 授权页） |
+| GET | /api/login/github/callback | - | GitHub OAuth 回调：关联/自动创建普通账号并签发会话，302 回首页（`?login=ok/cancelled/admin/failed`） |
+| POST | /api/login | - | 管理员账号密码登录（body: `{"username":"...","password":"..."}`；普通账号请走 GitHub 登录） |
 | DELETE | /api/login | - | 退出登录 |
 | GET | /api/users | 管理员 | 普通账号列表（不含密码） |
-| POST | /api/users | 管理员 | 创建普通账号（body: `{"username","password","github"}`） |
-| PATCH | /api/users/:username | 管理员 | 修改普通账号（github / password 重置，密码不可查询） |
+| POST | /api/users | 管理员 | 创建普通账号（body: `{"username","github"}`；password 可选兼容字段） |
+| PATCH | /api/users/:username | 管理员 | 修改普通账号（github；password 可选兼容） |
 | DELETE | /api/users/:username | 管理员 | 删除普通账号 |
 | GET | /api/latest-post | - | 技术博客最新文章（服务端代理 RSS，10 分钟缓存） |
 | GET | /api/posts | - | 动态列表（含评论） |

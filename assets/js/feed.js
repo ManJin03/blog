@@ -328,7 +328,7 @@ function commentItemHtml(p, c, state) {
 
 function commentsHtml(p, state) {
   const comments = Array.isArray(p.comments) ? p.comments : [];
-  // 管理员不能评论；未登录不能评论；普通账号可评论
+  // 管理员不能评论；普通账号可评论；未登录给出 GitHub 登录入口（点赞游客本就可用）
   const canComment = state.authed && !state.isAdmin;
 
   // 评论区内显示全部评论（整体显示/隐藏由气泡图标控制）
@@ -343,6 +343,10 @@ function commentsHtml(p, state) {
         <button class="publish-btn small" type="button" data-csend disabled>发表评论</button>
       </div>
     </div>` : '';
+  const loginTip = !state.authed ? `
+    <div class="comment-login">
+      <a class="github-login-btn small" href="/api/login/github">使用 GitHub 登录后即可发表评论</a>
+    </div>` : '';
 
   return `
     <div class="comments">
@@ -351,6 +355,7 @@ function commentsHtml(p, state) {
       </div>
       <ul class="comment-list">${list}</ul>
       ${composer}
+      ${loginTip}
     </div>`;
 }
 

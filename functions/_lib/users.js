@@ -4,13 +4,17 @@
 // 环境变量 ADMIN_USERNAME / ADMIN_PASSWORD 决定（未设置则回退默认 admin / admin123456），
 // 管理员不写入 KV，登录时直接用环境变量校验；修改管理员密码只能通过修改环境变量实现。
 //
-// KV 中只存储普通账号（role = 'user'）：
+// 普通账号（role = 'user'）登录已改为 GitHub OAuth（GET /api/login/github）：
+//   - 游客首次 GitHub 登录自动建号（findUserByGithub / bindOrCreateGithubUser），无需密码；
+//   - 管理员仍可后台预建账号（账号名 + GitHub 主页链接），该用户 GitHub 登录时自动关联；
+//   - 历史密码字段仅作兼容保留（旧账号密码不再用于登录）。
+// KV 中只存储普通账号：
 //   users:index       —— 索引键，JSON 数组，按创建时间倒序保存每个普通账号的公开信息
 //                        [{ username, github, createdAt }]（不含密码）
-//   user:{username}   —— 每个普通账号独立键，JSON 保存完整信息（含密码哈希与盐）
-//                        { username, passwordHash, passwordSalt, github, createdAt }
+//   user:{username}   —— 每个普通账号独立键，JSON 保存完整信息
+//                        { username, passwordHash?, passwordSalt?, github, createdAt }
 //
-// 密码使用 PBKDF2-SHA256（10 万次迭代）+ 随机盐哈希存储，绝不落明文。
+// 密码（若存在）使用 PBKDF2-SHA256（10 万次迭代）+ 随机盐哈希存储，绝不落明文。
 
 const INDEX_KEY = 'users:index';
 const userKey = (username) => `user:${username}`;
@@ -166,23 +170,75 @@ export function validateGithub(github) {
 }
 
 // 创建普通账号（仅普通账号，管理员不可通过此接口创建）
+// 说明：普通账号登录已改为 GitHub 登录，password 为可选兼容字段——历史客户端仍会传密码则一并保存，
+// 新流程创建的账号不设密码（登录凭据即 GitHub）。
 export async function createUser(env, { username, password, github }) {
   const index = await ensureIndex(env);
   // 禁止与管理员账号重名
   if (isAdminUsername(env, username)) return { error: '该用户名已被保留' };
   if (index.some((u) => u.username === username)) return { error: '该用户名已存在' };
-  const { salt, hash } = await hashPassword(password);
   const user = {
     username,
-    passwordSalt: salt,
-    passwordHash: hash,
     github,
+    createdAt: Date.now(),
+  };
+  if (password) {
+    const { salt, hash } = await hashPassword(password);
+    user.passwordSalt = salt;
+    user.passwordHash = hash;
+  }
+  index.unshift(publicOf(user));
+  await Promise.all([
+    env.KV.put(INDEX_KEY, JSON.stringify(index)),
+    env.KV.put(userKey(username), JSON.stringify(user)),
+  ]);
+  return { user: publicOf(user) };
+}
+
+/* ===================== GitHub 账号匹配 / 自动创建（GitHub OAuth 登录用） ===================== */
+
+// 通过 GitHub 用户名匹配已存在的普通账号（大小写不敏感，GitHub 用户名在 GitHub 侧不区分大小写）。
+// 匹配规则（命中其一即可）：
+//   1. 账号名 == GitHub 用户名（忽略大小写）
+//   2. 账号绑定的 GitHub 主页 == https://github.com/<用户名>
+export async function findUserByGithub(env, githubLogin) {
+  const login = String(githubLogin || '').toLowerCase();
+  if (!login) return null;
+  const index = await ensureIndex(env);
+  const target = `https://github.com/${login}`;
+  for (const meta of index) {
+    const gh = String(meta.github || '').toLowerCase().replace(/\/+$/, '');
+    if (meta.username.toLowerCase() === login || gh === target) {
+      return getUser(env, meta.username);
+    }
+  }
+  return null;
+}
+
+// GitHub OAuth 登录后的账号获取/创建：
+//   - 已存在匹配账号（管理员后台预建的账号在此关联）→ 返回该账号；
+//     若历史账号缺 github 字段则自动补全，保证头像/主页可显示。
+//   - 不存在 → 以 GitHub 用户名自动创建普通账号（无密码）。
+// 调用方需先确保 githubLogin 不与管理员账号同名。
+export async function bindOrCreateGithubUser(env, { login, githubUrl }) {
+  const existing = await findUserByGithub(env, login);
+  if (existing) {
+    if (!existing.github && githubUrl) {
+      const next = await updateUser(env, existing.username, { github: githubUrl });
+      if (!next.error) existing.github = next.user.github;
+    }
+    return { user: publicOf(existing) };
+  }
+  const index = await ensureIndex(env);
+  const user = {
+    username: login,
+    github: githubUrl || `https://github.com/${login}`,
     createdAt: Date.now(),
   };
   index.unshift(publicOf(user));
   await Promise.all([
     env.KV.put(INDEX_KEY, JSON.stringify(index)),
-    env.KV.put(userKey(username), JSON.stringify(user)),
+    env.KV.put(userKey(login), JSON.stringify(user)),
   ]);
   return { user: publicOf(user) };
 }

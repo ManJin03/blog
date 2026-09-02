@@ -20,6 +20,7 @@ const els = {
   loginModal: $('#loginModal'),
   modalClose: $('#modalClose'),
   modalMask: $('#modalMask'),
+  adminLoginToggle: $('#adminLoginToggle'),
   loginForm: $('#loginForm'),
   usernameInput: $('#usernameInput'),
   passwordInput: $('#passwordInput'),
@@ -31,7 +32,6 @@ const els = {
   userForm: $('#userForm'),
   userFormError: $('#userFormError'),
   newUsername: $('#newUsername'),
-  newPassword: $('#newPassword'),
   newGithub: $('#newGithub'),
   createUserBtn: $('#createUserBtn'),
   usersList: $('#usersList'),
@@ -325,12 +325,26 @@ initFeed({
 
 /* ---------- 登录 / 退出 ---------- */
 
+// 默认展示"使用 GitHub 登录"，管理员密码登录折叠在下方
 function openModal() {
   els.loginError.classList.add('hidden');
+  els.loginForm.classList.add('hidden');
+  els.adminLoginToggle.setAttribute('aria-expanded', 'false');
+  els.adminLoginToggle.textContent = '管理员密码登录';
   els.usernameInput.value = '';
   els.passwordInput.value = '';
   els.loginModal.classList.remove('hidden');
-  els.usernameInput.focus();
+}
+
+function toggleAdminLogin() {
+  const show = els.loginForm.classList.contains('hidden');
+  els.loginForm.classList.toggle('hidden', !show);
+  els.adminLoginToggle.setAttribute('aria-expanded', String(show));
+  els.adminLoginToggle.textContent = show ? '收起管理员登录' : '管理员密码登录';
+  if (show) {
+    els.loginError.classList.add('hidden');
+    els.usernameInput.focus();
+  }
 }
 
 function closeModal() {
@@ -377,6 +391,7 @@ els.postInput.addEventListener('keydown', (e) => {
 els.postBtn.addEventListener('click', submitPost);
 
 els.authBtn.addEventListener('click', () => openModal());
+els.adminLoginToggle.addEventListener('click', toggleAdminLogin);
 
 // 已登录用户点击头像：管理员打开账号管理；普通用户仅提示账号名
 els.userAvatarBtn.addEventListener('click', () => {
@@ -405,6 +420,22 @@ async function logout() {
   render();
 }
 
+// GitHub OAuth 回调结果（?login=ok|cancelled|admin|failed）：提示后清理查询参数
+function handleGithubLoginResult() {
+  const p = new URLSearchParams(location.search);
+  const code = p.get('login');
+  if (!code) return;
+  const hints = {
+    ok: ['GitHub 登录成功', 'success'],
+    cancelled: ['已取消 GitHub 登录', 'info'],
+    admin: ['该 GitHub 账号与管理员账号同名，请使用管理员密码登录', 'error'],
+    failed: ['GitHub 登录失败，请重试', 'error'],
+  };
+  const hint = hints[code];
+  if (hint) toast(hint[0], hint[1]);
+  history.replaceState(null, '', location.pathname + (location.hash || ''));
+}
+
 els.modalClose.addEventListener('click', closeModal);
 els.modalMask.addEventListener('click', closeModal);
 els.loginForm.addEventListener('submit', login);
@@ -419,7 +450,6 @@ document.addEventListener('keydown', (e) => {
 function openUsers() {
   els.userFormError.classList.add('hidden');
   els.newUsername.value = '';
-  els.newPassword.value = '';
   els.newGithub.value = '';
   els.usersModal.classList.remove('hidden');
   refreshUsers();
@@ -466,17 +496,15 @@ function renderUsers() {
 async function createUser(e) {
   e.preventDefault();
   const username = els.newUsername.value.trim();
-  const password = els.newPassword.value;
   const github = els.newGithub.value.trim();
-  if (!username || !password) return;
+  if (!username) return;
   els.createUserBtn.disabled = true;
   els.userFormError.classList.add('hidden');
   try {
-    await api.createUser(username, password, github);
+    await api.createUser(username, github);
     els.newUsername.value = '';
-    els.newPassword.value = '';
     els.newGithub.value = '';
-    toast('账号创建成功', 'success');
+    toast('账号创建成功（对方使用 GitHub 登录后自动关联）', 'success');
     refreshUsers();
   } catch (err) {
     els.userFormError.textContent = err.message;
@@ -486,7 +514,7 @@ async function createUser(e) {
   }
 }
 
-// 编辑账号：弹出一个内联编辑区（github / 重置密码）
+// 编辑账号：弹出一个内联编辑区（修改 GitHub 主页链接，用于关联登录）
 async function editUser(username) {
   const u = state.users.find((x) => x.username === username);
   if (!u) return;
@@ -494,8 +522,7 @@ async function editUser(username) {
   card.className = 'user-edit-card';
   card.innerHTML = `
     <p class="user-edit-title">编辑账号 <strong>${escapeHtml(username)}</strong></p>
-    <input class="user-edit-github" type="text" placeholder="GitHub 主页链接（可选）" value="${escapeHtml(u.github || '')}" />
-    <input class="user-edit-password" type="password" placeholder="重置密码（留空则不改）" autocomplete="new-password" />
+    <input class="user-edit-github" type="text" placeholder="GitHub 主页链接（用于 GitHub 登录关联）" value="${escapeHtml(u.github || '')}" />
     <p class="login-error hidden"></p>
     <div class="user-edit-actions">
       <button class="btn-ghost" type="button" data-cancel-edit>取消</button>
@@ -511,11 +538,8 @@ async function editUser(username) {
   card.querySelector('[data-cancel-edit]').addEventListener('click', () => renderUsers());
   card.querySelector('[data-save-edit]').addEventListener('click', async () => {
     const github = card.querySelector('.user-edit-github').value.trim();
-    const password = card.querySelector('.user-edit-password').value;
-    const patch = { github };
-    if (password) patch.password = password;
     try {
-      await api.updateUser(username, patch);
+      await api.updateUser(username, { github });
       toast('账号已更新', 'success');
       refreshUsers();
     } catch (err) {
@@ -1076,6 +1100,7 @@ function setupProgress() {
     listFallback(err);
   }
   render();
+  handleGithubLoginResult();
 
   // 页面增强模块（不依赖后端）
   setupSiteText(); // 尽早设置标题/描述/图标，避免闪烁

@@ -1434,6 +1434,82 @@ mark { background: var(--mark); color: inherit; border-radius: 2px; padding: 0 1
 
 #loginForm .publish-btn { margin-top: 14px; }
 
+/* ---------- GitHub 登录（登录弹窗 + 评论区未登录入口） ---------- */
+.github-login-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--hover);
+  color: var(--text);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  text-decoration: none;
+  transition: color 0.15s, border-color 0.15s, background 0.15s;
+}
+
+.github-login-btn:hover {
+  color: var(--accent);
+  border-color: var(--accent);
+  background: var(--card);
+}
+
+.github-login-btn.small {
+  width: auto;
+  padding: 6px 14px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.login-divider {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 14px 0 8px;
+  color: var(--muted);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.login-divider::before,
+.login-divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--border);
+}
+
+.admin-login-toggle {
+  display: block;
+  margin: 0 auto 6px;
+  padding: 4px 10px;
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: 12px;
+  transition: color 0.15s;
+}
+
+.admin-login-toggle:hover { color: var(--accent); }
+
+#loginForm { margin-top: 8px; }
+
+/* 评论区：未登录时给出 GitHub 登录入口 */
+.comment-login {
+  display: flex;
+  justify-content: center;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+
 /* ---------- 评论区 ---------- */
 .comments {
   margin-top: 12px;
