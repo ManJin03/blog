@@ -1653,114 +1653,6 @@ mark { background: var(--mark); color: inherit; border-radius: 2px; padding: 0 1
   margin-top: 6px;
 }
 
-/* ---------- 账号管理弹窗 ---------- */
-.users-card {
-  max-width: 440px;
-  max-height: 86vh;
-  overflow-y: auto;
-}
-
-.user-form {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  margin-top: 4px;
-}
-
-.user-form input {
-  width: 100%;
-  font: inherit;
-  font-size: 14px;
-  color: var(--text);
-  background: var(--hover);
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  padding: 9px 12px;
-  outline: none;
-  transition: border-color 0.15s;
-}
-.user-form input:focus { border-color: var(--accent); }
-
-.users-list {
-  list-style: none;
-  margin: 16px 0 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.user-item {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  padding: 10px 12px;
-  background: var(--hover);
-  border: 1px solid var(--border);
-  border-radius: 12px;
-}
-
-.user-item-main { display: flex; align-items: center; gap: 10px; min-width: 0; }
-
-.user-item-avatar {
-  flex: none;
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  background: var(--accent-grad);
-  color: #fff;
-  font-weight: 700;
-  font-size: 14px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.user-item-info { min-width: 0; }
-.user-item-name { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 14px; font-weight: 600; }
-
-.user-item-github {
-  font-size: 12px;
-  color: var(--muted);
-  text-decoration: none;
-  font-weight: 400;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  max-width: 160px;
-}
-.user-item-github:hover { color: var(--accent); text-decoration: underline; }
-
-.user-item-actions { display: flex; gap: 2px; flex: none; }
-
-.users-empty { text-align: center; color: var(--muted); font-size: 13px; padding: 12px 0; }
-
-.user-edit-card {
-  padding: 12px;
-  background: var(--hover);
-  border: 1px solid var(--accent);
-  border-radius: 12px;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-.user-edit-title { margin: 0; font-size: 13px; color: var(--text); }
-.user-edit-card input[type="text"],
-.user-edit-card input[type="password"] {
-  width: 100%;
-  font: inherit;
-  font-size: 14px;
-  color: var(--text);
-  background: var(--card);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 8px 10px;
-  outline: none;
-}
-.user-edit-card input:focus { border-color: var(--accent); }
-.user-edit-actions { display: flex; gap: 8px; align-items: center; justify-content: flex-end; }
-
 /* ---------- 自定义消息弹窗（替代原生 alert/confirm，不影响自定义光标） ---------- */
 .toast-stack {
   position: fixed;
@@ -1898,8 +1790,6 @@ mark { background: var(--mark); color: inherit; border-radius: 2px; padding: 0 1
   .nav-search { order: 5; flex-basis: 100%; max-width: none; }
   .profile-stats { flex-wrap: wrap; gap: 8px; }
   .col-right { flex-direction: column; }
-  .user-item { flex-direction: column; align-items: flex-start; }
-  .user-item-actions { align-self: flex-end; }
   .comment { gap: 8px; }
   .comment-avatar { width: 26px; height: 26px; }
 }

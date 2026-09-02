@@ -30,7 +30,7 @@ document.addEventListener('mouseout', (e) => {
 });
 
 // 悬停在可点击元素时，圆点放大高亮
-const interactiveSel = 'a, button, .post, .comment, .side-link, .filter-chip, input, textarea, .works-card, .status-bar, .search-clear, .act-btn, .modal-close, .brand, .auth-btn, .user-avatar-btn, .logout-btn, .btn-ghost, .publish-btn, .filter-select, .toast, .user-item, .meta-btn';
+const interactiveSel = 'a, button, .post, .comment, .side-link, .filter-chip, input, textarea, .works-card, .status-bar, .search-clear, .act-btn, .modal-close, .brand, .auth-btn, .user-avatar-btn, .logout-btn, .btn-ghost, .publish-btn, .filter-select, .toast, .meta-btn';
 document.addEventListener('mouseover', (e) => {
   if (e.target.closest(interactiveSel)) cursor.classList.add('is-hot');
 });

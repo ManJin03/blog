@@ -37,22 +37,6 @@ export const deletePost = (id) => request(`/api/posts/${encodeURIComponent(id)}`
   method: 'DELETE',
 });
 
-/* ---------- 账号管理（仅管理员） ---------- */
-export const getUsers = () => request('/api/users');
-// 普通账号登录已改为 GitHub 登录：创建时填 username + github 主页链接即可（password 可选兼容）
-export const createUser = (username, github, password) => {
-  const body = { username, github };
-  if (password) body.password = password;
-  return request('/api/users', { method: 'POST', body: JSON.stringify(body) });
-};
-export const updateUser = (username, patch) => request(`/api/users/${encodeURIComponent(username)}`, {
-  method: 'PATCH',
-  body: JSON.stringify(patch),
-});
-export const deleteUser = (username) => request(`/api/users/${encodeURIComponent(username)}`, {
-  method: 'DELETE',
-});
-
 /* ---------- 评论 ---------- */
 export const createComment = (postId, content) => request(`/api/posts/${encodeURIComponent(postId)}/comments`, {
   method: 'POST',

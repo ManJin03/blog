@@ -26,22 +26,12 @@ const els = {
   passwordInput: $('#passwordInput'),
   loginBtn: $('#loginBtn'),
   loginError: $('#loginError'),
-  usersModal: $('#usersModal'),
-  usersMask: $('#usersMask'),
-  usersClose: $('#usersClose'),
-  userForm: $('#userForm'),
-  userFormError: $('#userFormError'),
-  newUsername: $('#newUsername'),
-  newGithub: $('#newGithub'),
-  createUserBtn: $('#createUserBtn'),
-  usersList: $('#usersList'),
 };
 
 const state = {
   authed: false,   // 是否已登录
   isAdmin: false,  // 是否为管理员
   me: null,        // 当前登录用户 { username, role, github }
-  users: [],       // 账号列表（仅管理员加载）
   posts: [],       // 全部动态
   query: '',       // 搜索关键词
   tag: null,       // 选中的标签筛选（#话题#内容，不含井号）
@@ -393,12 +383,8 @@ els.postBtn.addEventListener('click', submitPost);
 els.authBtn.addEventListener('click', () => openModal());
 els.adminLoginToggle.addEventListener('click', toggleAdminLogin);
 
-// 已登录用户点击头像：管理员打开账号管理；普通用户仅提示账号名
+// 已登录用户点击头像：仅提示当前账号名
 els.userAvatarBtn.addEventListener('click', () => {
-  if (state.isAdmin) {
-    openUsers();
-    return;
-  }
   if (state.me) toast(`已登录：${state.me.username}`, 'info');
 });
 
@@ -414,9 +400,7 @@ async function logout() {
   state.authed = false;
   state.isAdmin = false;
   state.me = null;
-  state.users = [];
   state.editingId = null;
-  closeUsers();
   render();
 }
 
@@ -442,139 +426,7 @@ els.loginForm.addEventListener('submit', login);
 document.addEventListener('keydown', (e) => {
   if (e.key !== 'Escape') return;
   if (!els.loginModal.classList.contains('hidden')) closeModal();
-  if (!els.usersModal.classList.contains('hidden')) closeUsers();
 });
-
-/* ---------- 账号管理（仅管理员） ---------- */
-
-function openUsers() {
-  els.userFormError.classList.add('hidden');
-  els.newUsername.value = '';
-  els.newGithub.value = '';
-  els.usersModal.classList.remove('hidden');
-  refreshUsers();
-}
-
-function closeUsers() {
-  els.usersModal.classList.add('hidden');
-}
-
-async function refreshUsers() {
-  try {
-    const { users } = await api.getUsers();
-    state.users = users;
-    renderUsers();
-  } catch (err) {
-    toast(err.message, 'error');
-  }
-}
-
-function renderUsers() {
-  if (!state.users.length) {
-    els.usersList.innerHTML = '<li class="users-empty">暂无账号</li>';
-    return;
-  }
-  els.usersList.innerHTML = state.users.map((u) => `
-    <li class="user-item" data-username="${escapeHtml(u.username)}">
-      <div class="user-item-main">
-        <div class="user-item-avatar">${userInitials(u.username)}</div>
-        <div class="user-item-info">
-          <div class="user-item-name">
-            ${escapeHtml(u.username)}
-            ${u.github ? `<a class="user-item-github" href="${escapeHtml(u.github)}" target="_blank" rel="noopener noreferrer">${escapeHtml(u.github.replace(/^https?:\/\//, ''))}</a>` : ''}
-          </div>
-        </div>
-      </div>
-      <div class="user-item-actions">
-        <button class="act-btn" type="button" data-edit-user="${escapeHtml(u.username)}" title="编辑">编辑</button>
-        <button class="act-btn danger" type="button" data-del-user="${escapeHtml(u.username)}" title="删除">删除</button>
-      </div>
-    </li>
-  `).join('');
-}
-
-async function createUser(e) {
-  e.preventDefault();
-  const username = els.newUsername.value.trim();
-  const github = els.newGithub.value.trim();
-  if (!username) return;
-  els.createUserBtn.disabled = true;
-  els.userFormError.classList.add('hidden');
-  try {
-    await api.createUser(username, github);
-    els.newUsername.value = '';
-    els.newGithub.value = '';
-    toast('账号创建成功（对方使用 GitHub 登录后自动关联）', 'success');
-    refreshUsers();
-  } catch (err) {
-    els.userFormError.textContent = err.message;
-    els.userFormError.classList.remove('hidden');
-  } finally {
-    els.createUserBtn.disabled = false;
-  }
-}
-
-// 编辑账号：弹出一个内联编辑区（修改 GitHub 主页链接，用于关联登录）
-async function editUser(username) {
-  const u = state.users.find((x) => x.username === username);
-  if (!u) return;
-  const card = document.createElement('div');
-  card.className = 'user-edit-card';
-  card.innerHTML = `
-    <p class="user-edit-title">编辑账号 <strong>${escapeHtml(username)}</strong></p>
-    <input class="user-edit-github" type="text" placeholder="GitHub 主页链接（用于 GitHub 登录关联）" value="${escapeHtml(u.github || '')}" />
-    <p class="login-error hidden"></p>
-    <div class="user-edit-actions">
-      <button class="btn-ghost" type="button" data-cancel-edit>取消</button>
-      <button class="publish-btn small" type="button" data-save-edit>保存</button>
-    </div>
-  `;
-  const item = els.usersList.querySelector(`[data-username="${CSS.escape(username)}"]`);
-  if (item) item.replaceWith(card);
-
-  const errEl = card.querySelector('.login-error');
-  const showErr = (msg) => { errEl.textContent = msg; errEl.classList.remove('hidden'); };
-
-  card.querySelector('[data-cancel-edit]').addEventListener('click', () => renderUsers());
-  card.querySelector('[data-save-edit]').addEventListener('click', async () => {
-    const github = card.querySelector('.user-edit-github').value.trim();
-    try {
-      await api.updateUser(username, { github });
-      toast('账号已更新', 'success');
-      refreshUsers();
-    } catch (err) {
-      showErr(err.message);
-    }
-  });
-}
-
-async function removeUser(username) {
-  const u = state.users.find((x) => x.username === username);
-  if (!u) return;
-  const ok = await confirmBox({
-    message: `确定删除账号「${username}」吗？该账号将无法登录。`,
-    confirmText: '删除',
-    danger: true,
-  });
-  if (!ok) return;
-  try {
-    await api.deleteUser(username);
-    toast('账号已删除', 'success');
-    refreshUsers();
-  } catch (err) {
-    toast(err.message, 'error');
-  }
-}
-
-els.usersList.addEventListener('click', (e) => {
-  const editBtn = e.target.closest('[data-edit-user]');
-  const delBtn = e.target.closest('[data-del-user]');
-  if (editBtn) editUser(editBtn.dataset.editUser);
-  else if (delBtn) removeUser(delBtn.dataset.delUser);
-});
-els.usersMask.addEventListener('click', closeUsers);
-els.usersClose.addEventListener('click', closeUsers);
-els.userForm.addEventListener('submit', createUser);
 
 /* =====================================================================
  * 以下为页面增强部分：作品展示、右侧导航高亮、滚动揭示、时钟、阅读进度

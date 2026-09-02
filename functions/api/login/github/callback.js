@@ -89,7 +89,7 @@ export async function onRequestGet({ request, env }) {
     // 映射管理员：不写入 KV，会话携带其 GitHub 用户名（/api/me 会按映射补全资料）
     username = login;
     role = 'admin';
-    // 清理历史遗留的"同名普通账号"：该 GitHub 身份此前自动建号/预建过的普通账号
+    // 清理历史遗留的"同名普通账号"：该 GitHub 身份此前自动建号过的普通账号
     // 今后只会命中管理员映射，已无意义；评论等数据内嵌在帖子中不受影响。
     // 仅限拥有该 GitHub 账号的人能触发（GitHub 登录名全局唯一），清理失败不影响登录。
     if (env.KV) {

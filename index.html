@@ -377,28 +377,6 @@
     </div>
   </div>
 
-  <!-- 账号管理弹窗（仅管理员） -->
-  <div id="usersModal" class="modal hidden" role="dialog" aria-modal="true" aria-label="账号管理">
-    <div class="modal-mask" id="usersMask"></div>
-    <div class="modal-card users-card">
-      <button id="usersClose" class="modal-close" type="button" aria-label="关闭">
-        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"
-          stroke-linecap="round">
-          <path d="M18 6 6 18M6 6l12 12" />
-        </svg>
-      </button>
-      <h3>账号管理</h3>
-      <p class="modal-tip">普通账号统一使用 GitHub 登录：填写对方的 GitHub 主页链接，对方登录时自动关联到该账号</p>
-      <form id="userForm" class="user-form">
-        <input id="newUsername" type="text" placeholder="账号名（字母/数字/_-）" autocomplete="off" />
-        <input id="newGithub" type="text" placeholder="GitHub 主页链接（推荐填写，用于关联登录）" autocomplete="off" />
-        <p id="userFormError" class="login-error hidden"></p>
-        <button id="createUserBtn" class="publish-btn full" type="submit">创建普通账号</button>
-      </form>
-      <ul id="usersList" class="users-list"></ul>
-    </div>
-  </div>
-
   <!-- Vercount 访客统计 -->
   <script defer src="https://events.vercount.one/js"></script>
   <script type="module" src="assets/js/intro.js"></script>
