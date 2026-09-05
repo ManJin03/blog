@@ -433,16 +433,18 @@ document.addEventListener('keydown', (e) => {
  * ===================================================================== */
 
 /* ---------- 作品展示渲染（传入实时 GitHub 仓库数据；缺省回退本地配置） ---------- */
+
+// 作品展示折叠状态：默认只展示 GitHub 主页 pin 的项目，其余折叠（数据无 pinned 信息时全部展示）
+const worksState = { data: null, expanded: false };
+
 function renderWorks(repos) {
   const grid = document.getElementById('worksGrid');
   const list = Array.isArray(repos) ? repos : SITE.works;
   if (!grid || !list) return;
-  if (!list.length) {
-    grid.innerHTML = '<p class="empty">暂无仓库</p>';
-    return;
-  }
-  grid.innerHTML = list.map((w) => `
-    <a class="works-card" href="${w.url}" target="_blank" rel="noopener noreferrer">
+  worksState.data = list;
+
+  const card = (w, extra) => `
+    <a class="works-card${extra ? ' works-card-extra' : ''}" href="${w.url}" target="_blank" rel="noopener noreferrer">
       <div class="works-card-head">
         <span class="works-ic">
           <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16v16H4z"/><path d="M4 9h16M9 9v11"/></svg>
@@ -458,7 +460,39 @@ function renderWorks(repos) {
         <span title="Forks">⑂ ${w.forks ?? 0}</span>
       </div>
     </a>
-  `).join('');
+  `;
+
+  if (!list.length) {
+    grid.innerHTML = '<p class="empty">暂无仓库</p>';
+    return;
+  }
+
+  // 仅当实时数据携带 pinned 信息且至少有一个置顶项目时启用折叠；
+  // 本地兜底 / pinned 解析失败（全 false）时保持原样全部展示
+  const hasPinned = list.some((w) => w.pinned);
+  const pinned = hasPinned ? list.filter((w) => w.pinned) : list;
+  const others = hasPinned ? list.filter((w) => !w.pinned) : [];
+
+  // 非置顶卡片带 extra 类：容器未展开时由 CSS 隐藏，展开后自然显示
+  grid.innerHTML =
+    pinned.map((w) => card(w)).join('') +
+    others.map((w) => card(w, true)).join('') +
+    (others.length ? `
+      <button type="button" class="works-toggle" aria-expanded="${worksState.expanded}">
+        <span class="works-toggle-label">${worksState.expanded ? '收起更多项目' : `更多项目（${others.length} 个）`}</span>
+        <span class="works-toggle-icon" aria-hidden="true"></span>
+      </button>
+    ` : '');
+  grid.classList.toggle('has-extra', others.length > 0);
+  grid.classList.toggle('is-expanded', worksState.expanded);
+
+  const btn = grid.querySelector('.works-toggle');
+  if (btn) {
+    btn.addEventListener('click', () => {
+      worksState.expanded = !worksState.expanded;
+      renderWorks(worksState.data);
+    });
+  }
 }
 
 function escapeHtml(s) {
@@ -722,6 +756,13 @@ function renderCommits(commits) {
   }
 }
 
+// 统一渲染 GitHub 聚合数据（统计 + 作品 + 提交），首屏与刷新按钮共用
+function applyGithubData(data) {
+  renderStats(data?.profile);
+  renderWorks(data?.repos);
+  renderCommits(data?.commits);
+}
+
 // 聚合入口：一次请求拿到统计 + 仓库 + 提交；失败时全部回退本地兜底
 async function setupGithub() {
   const box = document.getElementById('commitsList');
@@ -741,15 +782,36 @@ async function setupGithub() {
     `;
   }
   try {
-    const data = await api.getGithub();
-    renderStats(data?.profile);
-    renderWorks(data?.repos);
-    renderCommits(data?.commits);
+    applyGithubData(await api.getGithub());
   } catch (err) {
     console.warn('[github] 实时数据获取失败，使用本地兜底：', err);
     renderCommits(null);
   }
 }
+
+// 刷新按钮：跳过全部缓存强制重新拉取 GitHub 数据（含贡献热力图）
+async function refreshGithub() {
+  const btn = document.getElementById('githubRefreshBtn');
+  if (!btn || btn.disabled || actState.loading) return;
+  btn.disabled = true;
+  btn.classList.add('is-loading');
+  btn.setAttribute('aria-busy', 'true');
+  try {
+    const data = await api.getGithub(true);
+    applyGithubData(data);
+    if (data?.stale) toast('GitHub 暂时连不上，当前展示为最近缓存数据', 'info');
+    else toast('GitHub 数据已更新', 'success');
+    loadActivity(actState.year); // 顺带刷新贡献热力图
+  } catch (err) {
+    toast(`刷新失败：${err.message}`, 'error');
+  } finally {
+    btn.disabled = false;
+    btn.classList.remove('is-loading');
+    btn.removeAttribute('aria-busy');
+  }
+}
+
+document.getElementById('githubRefreshBtn')?.addEventListener('click', refreshGithub);
 
 /* ---------- GitHub 贡献热力图（仿 GitHub 主页贡献图） ---------- */
 const CONTRIB_MONTHS = ['', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];

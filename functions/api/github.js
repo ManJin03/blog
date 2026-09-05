@@ -9,6 +9,7 @@
 //   2. KV 持久化缓存（24 小时，每天刷新一次，跨实例共享）
 //   3. 从 GitHub 实时拉取（成功即写回 KV）
 //   4. GitHub 连不上时回退到 KV 中最近一次成功的数据（允许过期）
+// 支持 ?refresh=1：跳过 1/2 级缓存强制实时拉取（前端刷新按钮），失败仍回退 KV 过期数据。
 import { json } from '../_lib/http.js';
 import { KEY_PROFILE, kvRead, kvReadStale, kvWrite } from '../_lib/github-kv.js';
 
@@ -55,12 +56,55 @@ async function gh(env, path) {
   return res.json();
 }
 
+const PINNED_TIMEOUT = 15000; // 主页 HTML 抓取超时
+
+// 抓取 GitHub 主页 HTML，解析 pinned（主页置顶）仓库名单。
+// GitHub REST API 不提供 pinned 数据，主页 HTML 是唯一免 Token 来源；
+// 解析失败（页面改版 / 网络抖动）直接抛错，由调用方降级为空名单，不影响其余数据。
+async function fetchPinnedNames() {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), PINNED_TIMEOUT);
+  let html;
+  try {
+    const res = await fetch(`https://github.com/${USERNAME}`, {
+      headers: { 'user-agent': 'Mozilla/5.0 (compatible; ManJin-home/1.0)', accept: 'text/html' },
+      redirect: 'follow',
+      signal: ctrl.signal,
+    });
+    if (!res.ok) throw new Error(`GitHub 主页 HTTP ${res.status}`);
+    html = await res.text();
+  } finally {
+    clearTimeout(timer);
+  }
+
+  // 定位 "Pinned" 区块：从 Pinned 标题起，到 "Popular repositories" / 区块收尾标签止，
+  // 只在该片段内提取仓库链接，避免误匹配页面上其他指向仓库的锚点。
+  const startIdx = html.search(/>\s*Pinned\s*</);
+  if (startIdx === -1) return [];
+  const rest = html.slice(startIdx);
+  const endRe = /Popular repositories|Achievements|<\/section>/;
+  const endMatch = endRe.exec(rest);
+  const section = endMatch ? rest.slice(0, endMatch.index) : rest.slice(0, 30000);
+
+  const re = new RegExp(`href="/${USERNAME}/([^"']+)`, 'g');
+  const names = new Set();
+  let m;
+  while ((m = re.exec(section))) {
+    // 只取路径首段为仓库名（排除 /stargazers 之类子路径）
+    const name = decodeURIComponent(m[1].split('/')[0]);
+    if (name) names.add(name);
+  }
+  return [...names];
+}
+
 async function fetchAll(env) {
-  // 用户资料与公开仓库并行拉取
+  // 用户资料、公开仓库与主页 pinned 解析并行拉取；
+  // pinned 解析失败降级为空名单（全部标记非置顶），不影响资料与仓库数据
   // sort=pushed：以最近提交（push）时间为参考排序，作为作品展示顺序
-  const [user, repos] = await Promise.all([
+  const [user, repos, pinnedNames] = await Promise.all([
     gh(env, `/users/${USERNAME}`),
     gh(env, `/users/${USERNAME}/repos?sort=pushed&per_page=100&type=owner`),
+    fetchPinnedNames().catch(() => []),
   ]);
 
   // 仅统计本人创建的仓库（排除 fork），累加获星数
@@ -76,18 +120,22 @@ async function fetchAll(env) {
     bio: user.bio || '',
   };
 
-  // 作品展示：返回全部本人仓库（前端按窗口宽度自适应展示数量），
-  // 按最近提交（pushed_at）倒序排序，并附带 pushedAt 供前端参考
-  const repoList = own.map((r) => ({
-    name: r.name,
-    desc: r.description || '',
-    lang: r.language || '',
-    langColor: LANG_COLORS[r.language] || '#4f8dff',
-    stars: r.stargazers_count || 0,
-    forks: r.forks_count || 0,
-    url: r.html_url,
-    pushedAt: r.pushed_at || '',
-  }));
+  // 作品展示：返回全部本人仓库（前端默认只展示 pinned，其余折叠），
+  // pinned（主页置顶）优先排前，同组内按最近提交（pushed_at）倒序排序
+  const pinnedSet = new Set(pinnedNames.map((n) => n.toLowerCase()));
+  const repoList = own
+    .map((r) => ({
+      name: r.name,
+      desc: r.description || '',
+      lang: r.language || '',
+      langColor: LANG_COLORS[r.language] || '#4f8dff',
+      stars: r.stargazers_count || 0,
+      forks: r.forks_count || 0,
+      url: r.html_url,
+      pushedAt: r.pushed_at || '',
+      pinned: pinnedSet.has(r.name.toLowerCase()),
+    }))
+    .sort((a, b) => (b.pinned - a.pinned) || (new Date(b.pushedAt) - new Date(a.pushedAt)));
 
   // 最近提交：对最近提交的仓库（最多 3 个）并行拉取提交，合并按时间倒序取前 10。
   // 单个仓库拉取失败时降级为空数组，不影响其余数据。
@@ -120,31 +168,36 @@ async function fetchAll(env) {
 export async function onRequestGet(context) {
   const env = (context && context.env) || {};
   const now = Date.now();
+  // ?refresh=1：前端刷新按钮触发，跳过内存与 KV 有效缓存，强制实时拉取
+  const forceRefresh = new URL(context.request.url).searchParams.get('refresh') === '1';
 
-  // 1) 内存热点缓存（5 分钟）直接命中
-  if (cache.data && now - cache.time < CACHE_TTL) {
-    return json(cache.data);
-  }
+  if (!forceRefresh) {
+    // 1) 内存热点缓存（5 分钟）直接命中
+    if (cache.data && now - cache.time < CACHE_TTL) {
+      return json(cache.data);
+    }
 
-  // 2) KV 持久化缓存（24 小时）：命中即返回，实现"每天只访问一次 GitHub"
-  const hit = await kvRead(env, KEY_PROFILE);
-  if (hit) {
-    cache = { time: now, data: hit };
-    return json(hit);
+    // 2) KV 持久化缓存（24 小时）：命中即返回，实现"每天只访问一次 GitHub"
+    const hit = await kvRead(env, KEY_PROFILE);
+    if (hit) {
+      cache = { time: now, data: hit };
+      return json(hit);
+    }
   }
 
   try {
-    // 3) 缓存未命中：从 GitHub 拉取，成功后写回 KV（下次请求起 24h 内直接命中）
+    // 3) 缓存未命中 / 强制刷新：从 GitHub 拉取，成功后写回 KV（下次请求起 24h 内直接命中）
     const data = await fetchAll(env);
     cache = { time: now, data }; // 仅成功结果入缓存
     await kvWrite(env, KEY_PROFILE, data);
     return json(data);
   } catch (err) {
-    // 4) GitHub 拉取失败：回退到 KV 中最近一次成功的数据（允许过期），保证页面可用
+    // 4) GitHub 拉取失败：回退到 KV 中最近一次成功的数据（允许过期），保证页面可用。
+    //    强刷场景不把过期数据写入内存缓存，避免污染后续正常请求。
     const stale = await kvReadStale(env, KEY_PROFILE);
     if (stale) {
-      cache = { time: now, data: stale };
-      return json(stale);
+      if (!forceRefresh) cache = { time: now, data: stale };
+      return json({ ...stale, stale: true });
     }
     return json({ error: `GitHub 数据获取失败：${err.message}` }, 502);
   }

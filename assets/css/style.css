@@ -878,6 +878,57 @@ mark { background: var(--mark); color: inherit; border-radius: 2px; padding: 0 1
 .works-foot { display: flex; gap: 14px; font-size: 12px; color: var(--muted); }
 .works-foot span { display: inline-flex; align-items: center; gap: 4px; }
 
+/* 刷新按钮（重新拉取 GitHub 数据）：图标按钮，加载中旋转 */
+.module-head .refresh-btn {
+  margin-left: auto;
+  align-self: center;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--muted);
+  transition: background 0.18s, color 0.18s, border-color 0.18s, opacity 0.18s;
+}
+.module-head .refresh-btn:hover { background: var(--hover); color: var(--text); }
+.module-head .refresh-btn:disabled { opacity: 0.55; }
+.module-head .refresh-btn .refresh-icon { display: block; }
+.module-head .refresh-btn.is-loading .refresh-icon { animation: refreshSpin 0.8s linear infinite; }
+@keyframes refreshSpin { to { transform: rotate(360deg); } }
+
+/* 非 pin 项目折叠：默认隐藏（.works-card-extra），点击"更多项目"展开 */
+.works-grid.has-extra:not(.is-expanded) .works-card-extra { display: none; }
+.works-toggle {
+  grid-column: 1 / -1;
+  justify-self: center;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 16px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1;
+  transition: background 0.18s, color 0.18s;
+}
+.works-toggle:hover { background: var(--hover); color: var(--text); }
+.works-toggle-icon {
+  width: 7px;
+  height: 7px;
+  margin-bottom: -3px;
+  border-right: 1.5px solid currentColor;
+  border-bottom: 1.5px solid currentColor;
+  transform: rotate(45deg);
+  transition: transform 0.2s ease;
+}
+.works-toggle[aria-expanded="true"] .works-toggle-icon { transform: rotate(225deg); }
+
 /* ---------- GitHub 贡献热力图（仿 GitHub 主页贡献图） ---------- */
 :root {
   --gh-cell: 10px;             /* 10px 使 53 列热力图在 1320 布局下恰好放下，无需横向滚动 */

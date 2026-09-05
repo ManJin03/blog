@@ -13,7 +13,8 @@ async function request(path, opts = {}) {
 export const getMe = () => request('/api/me').catch(() => ({ authed: false }));
 export const getPosts = () => request('/api/posts');
 export const getLatestPost = () => request('/api/latest-post').catch(() => null);
-export const getGithub = () => request('/api/github');
+export const getGithub = (refresh) =>
+  request(refresh ? '/api/github?refresh=1' : '/api/github');
 export const getGithubContributions = (year) =>
   request(year ? `/api/github-contributions?year=${year}` : '/api/github-contributions');
 export const login = (username, password) => request('/api/login', {
